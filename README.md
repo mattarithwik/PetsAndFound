@@ -54,6 +54,8 @@ The API defaults to port 8080. Both services expose `GET /health` for liveness. 
 
 If Bluesky requires an authenticated search, set `BSKY_PDS_URL` and a server-side `BSKY_ACCESS_JWT` issued for that PDS. Review externally licensed photos with `review_external_photos` before using them for automatic comparisons.
 
+For a small local test UI, run `npm run demo` and open `http://127.0.0.1:4173`. Create an identity, save a profile, and use the chat to see the agent's tool results and report confirmations. The API explorer can call the agent, SpacetimeDB, and vision endpoints. It uses `SPACETIME_URI`, `SPACETIME_DATABASE`, `AGENT_SERVICE_URL`, and `VISION_SERVICE_URL` from your environment or `.env`. The vision explorer requires the internal service secret. The user token stays in tab-scoped session storage.
+
 ## Client integration
 
 Use the SpacetimeDB SDK for registration, ordinary writes and subscriptions. Generate client bindings from the published module with `spacetime generate --lang typescript --out-dir <client-bindings> --module-path spacetimedb`. Each reducer's `payload` argument is a JSON-encoded object. For HTTP calls, POST an array containing that one string to `/v1/database/<database>/call/<reducer>`. The `api_read` procedure takes two strings (resource and key) and returns JSON text.

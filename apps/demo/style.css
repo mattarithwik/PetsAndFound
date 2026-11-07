@@ -1,0 +1,59 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
+
+:root { font-family: "DM Sans", sans-serif; color: #1e2925; background: #f4f6f3; font-size: 14px; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 18px 32px; background: white; border-bottom: 1px solid #e1e8e2; }
+header strong { font-size: 18px; letter-spacing: -.04em; color: #1e5a42; }
+header span { margin-left: 14px; color: #78857b; }
+header p { margin: 0; font-size: 12px; color: #6a786e; }
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 22px; max-width: 1300px; margin: 28px auto; padding: 0 24px; align-items: start; }
+aside, .workspace { display: grid; gap: 16px; min-width: 0; }
+section { background: white; border: 1px solid #e1e8e2; border-radius: 12px; padding: 20px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 21px; letter-spacing: -.035em; }
+h2 { font-size: 15px; letter-spacing: -.02em; }
+.section-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.section-title p { margin-top: 5px; color: #768379; font-size: 13px; }
+label { display: grid; gap: 6px; margin: 13px 0 0; font-size: 12px; font-weight: 600; color: #5f7064; }
+input, select, textarea { width: 100%; border: 1px solid #d9e2da; border-radius: 7px; padding: 10px; background: white; color: #26352c; font: inherit; font-size: 13px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid #a9d4bb; outline-offset: 1px; }
+input[type=file] { padding: 8px; }
+textarea { resize: vertical; }
+button { border: 0; border-radius: 7px; background: #256f50; color: white; font: inherit; font-size: 13px; font-weight: 700; padding: 10px 15px; cursor: pointer; }
+button:hover { background: #1d5d42; }
+button:disabled { opacity: .55; cursor: wait; }
+button.secondary { margin-top: 12px; background: #edf5ef; color: #286649; }
+button.secondary:hover { background: #dfede3; }
+button.text-button { background: transparent; color: #397856; padding: 8px 4px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.check { display: flex; align-items: center; font-weight: 400; }
+.check input { width: auto; }
+aside p[role=status] { margin-top: 10px; color: #647267; overflow-wrap: anywhere; }
+ul { margin: 8px 0 0; padding-left: 18px; color: #647267; }
+li { margin-top: 6px; overflow-wrap: anywhere; }
+.messages { min-height: 220px; max-height: 520px; overflow-y: auto; background: #f7f9f7; border: 1px solid #edf1ed; border-radius: 9px; padding: 16px; }
+.empty { color: #94a097; font-size: 13px; }
+.message { margin-bottom: 14px; }
+.message strong { display: block; color: #66806e; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+.message p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.message.user p { color: #245d41; }
+.message details { margin-top: 8px; }
+summary { color: #42765a; cursor: pointer; font-size: 12px; font-weight: 600; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f4f7f4; padding: 12px; border-radius: 7px; color: #52635a; font: 12px/1.5 ui-monospace, monospace; max-height: 300px; overflow-y: auto; }
+.message button { margin-top: 8px; }
+#chat-form { margin-top: 14px; }
+.send-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.send-row span { color: #6f7e73; font-size: 12px; }
+.context { border-top: 1px solid #edf1ed; margin-top: 16px; padding-top: 15px; }
+.request-row { display: grid; grid-template-columns: 150px 100px minmax(0, 1fr); gap: 10px; }
+#api-result { min-height: 58px; margin: 15px 0 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+@media (max-width: 760px) {
+  header { padding: 16px; }
+  header span { display: none; }
+  main { display: flex; flex-direction: column-reverse; padding: 0 14px; margin: 16px auto; }
+  aside, .workspace { width: 100%; }
+  .request-row { grid-template-columns: 1fr 1fr; }
+  .request-row label:last-child { grid-column: 1 / -1; }
+}

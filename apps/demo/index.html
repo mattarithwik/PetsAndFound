@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PawSafe agent playground</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <header>
+    <div><strong>PawSafe</strong><span>Agent playground</span></div>
+    <p id="service-status" role="status">Checking services…</p>
+  </header>
+  <main>
+    <aside>
+      <section>
+        <h2>Session</h2>
+        <label>SpacetimeDB token <input id="token" type="password" autocomplete="off" placeholder="Paste a token or create one"></label>
+        <button id="identity" type="button" class="secondary">Create identity</button>
+        <div class="row">
+          <label>Your name <input id="name" placeholder="Test owner"></label>
+          <label>City <input id="city" placeholder="Dallas"></label>
+        </div>
+        <button id="profile" type="button" class="secondary">Save profile</button>
+        <p id="session-status" role="status"></p>
+      </section>
+      <section>
+        <h2>Pet</h2>
+        <div class="row">
+          <label>Pet name <input id="pet-name" placeholder="Max"></label>
+          <label>Species <select id="species"><option value="dog">Dog</option><option value="cat">Cat</option><option value="other">Other</option></select></label>
+        </div>
+        <button id="add-pet" type="button" class="secondary">Add pet</button>
+        <button id="load-pets" type="button" class="text-button">Refresh pets</button>
+        <ul id="pets"></ul>
+      </section>
+      <section>
+        <h2>Photo</h2>
+        <label>Choose a photo <input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <label class="check"><input id="one-animal" type="checkbox"> This photo contains one animal</label>
+        <button id="upload" type="button" class="secondary">Upload photo</button>
+        <p id="photo-status" role="status"></p>
+        <label>Attach to pet <select id="photo-pet"><option value="">Select a pet</option></select></label>
+        <button id="attach" type="button" class="secondary">Attach uploaded photo</button>
+      </section>
+    </aside>
+    <div class="workspace">
+      <section class="chat">
+        <div class="section-title"><div><h1>Talk to the agent</h1><p>Ask about a pet, a shelter, or an active warning.</p></div><button id="new-chat" type="button" class="text-button">New chat</button></div>
+        <div id="messages" class="messages" aria-live="polite">
+          <p class="empty">Your messages, tool results and report confirmations will appear here.</p>
+        </div>
+        <form id="chat-form">
+          <label class="sr-only" for="message">Message</label>
+          <textarea id="message" rows="3" required placeholder="Find my missing dog Max near Dallas"></textarea>
+          <div class="send-row"><span id="chat-status" role="status"></span><button type="submit" id="send">Send message</button></div>
+        </form>
+        <details class="context">
+          <summary>Location and report context</summary>
+          <div class="row">
+            <label>Latitude <input id="latitude" type="number" min="-90" max="90" step="any" placeholder="32.95"></label>
+            <label>Longitude <input id="longitude" type="number" min="-180" max="180" step="any" placeholder="-96.73"></label>
+          </div>
+          <label>Report ID <input id="report-id" placeholder="Optional"></label>
+        </details>
+      </section>
+      <section class="explorer">
+        <div class="section-title"><div><h2>API explorer</h2><p>Run a request against the connected services.</p></div></div>
+        <label>Endpoint <select id="endpoint"></select></label>
+        <div class="request-row">
+          <label>Service <select id="target"><option value="agent">Agent</option><option value="db">SpacetimeDB</option><option value="vision">Vision</option></select></label>
+          <label>Method <select id="method"><option>GET</option><option>POST</option><option>DELETE</option></select></label>
+          <label>Path <input id="path" spellcheck="false"></label>
+        </div>
+        <label id="secret-label" hidden>Internal service secret <input id="secret" type="password" autocomplete="off"></label>
+        <label>Request body <textarea id="body" rows="5" spellcheck="false"></textarea></label>
+        <div class="send-row"><span id="api-status" role="status"></span><button id="api-send" type="button">Send request</button></div>
+        <pre id="api-result">Response will appear here.</pre>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
