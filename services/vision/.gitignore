@@ -1,0 +1,4 @@
+.test-deps/
+data/
+__pycache__/
+.venv/

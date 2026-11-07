@@ -1,0 +1,34 @@
+[
+  {
+    "photoId": "bo-garden", "petId": "bo", "species": "dog", "split": "gallery",
+    "source": "https://obamawhitehouse.archives.gov/photos-and-video/photogallery/bo",
+    "imageUrl": "https://obamawhitehouse.archives.gov/sites/default/files/imagecache/gallery_img_thumb/image/image_file/P030310CK-0372_1__q_itok=kjOo3Kww.jpg",
+    "credit": "White House photograph by Chuck Kennedy"
+  },
+  {
+    "photoId": "bo-snow", "petId": "bo", "species": "dog", "split": "gallery",
+    "source": "https://obamawhitehouse.archives.gov/photos-and-video/photogallery/bo",
+    "imageUrl": "https://obamawhitehouse.archives.gov/sites/default/files/imagecache/gallery_img_thumb/image/image_file/P021010PS-0126_0__q_itok=DA8i1eMB.jpg",
+    "credit": "White House photograph by Pete Souza"
+  },
+  {
+    "photoId": "barney-halloween", "petId": "barney", "species": "dog", "split": "gallery",
+    "source": "https://georgewbush-whitehouse.archives.gov/news/releases/2007/10/images/20071031-9_p103107sc-0482-609v.html",
+    "imageUrl": "https://georgewbush-whitehouse.archives.gov/news/releases/2007/10/images/20071031-9_p103107sc-0482-609v.jpg",
+    "credit": "White House photograph by Shealah Craighead"
+  },
+  {
+    "photoId": "bo-running", "petId": "bo", "species": "dog", "split": "query",
+    "conditions": ["moving", "human-in-scene"],
+    "source": "https://obamawhitehouse.archives.gov/photos-and-video/photos/fy-bo",
+    "imageUrl": "https://obamawhitehouse.archives.gov/sites/default/files/imagecache/gallery_img_full/image/image_file/P031509PS-0140__q_itok=vDsidDoF.JPG",
+    "credit": "White House photograph by Pete Souza"
+  },
+  {
+    "photoId": "beazley-treat", "petId": "miss-beazley", "species": "dog", "split": "query",
+    "conditions": ["absent-same-breed", "low-resolution"],
+    "source": "https://georgewbush-whitehouse.archives.gov/barney/missbeazley-bio.html",
+    "imageUrl": "https://georgewbush-whitehouse.archives.gov/news/releases/2006/03/images/20060330-2_p032306kh-0027-97v.jpg",
+    "credit": "White House photograph by Kimberlee Hewitt"
+  }
+]

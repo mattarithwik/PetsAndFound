@@ -1,0 +1,15 @@
+{
+  "name": "pawsafe-database",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "bundle": "spacetime build --module-path ."
+  },
+  "dependencies": {
+    "spacetimedb": "2.14.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "pawsafe-backend",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix services/agent run build && npm --prefix spacetimedb run build",
+    "test": "npm --prefix services/agent test",
+    "start": "npm --prefix services/agent start",
+    "worker": "npm --prefix services/agent run worker"
+  }
+}
