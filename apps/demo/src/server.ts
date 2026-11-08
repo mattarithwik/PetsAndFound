@@ -32,6 +32,7 @@ const files: Record<string, [string, string]> = {
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
   "/logo.png": ["../../../public/logo.png", "image/png"],
   "/daisy-source.png": ["../../../public/daisy-source.png", "image/png"],
+  "/fonts/MaterialIcons.ttf": ["../../../node_modules/react-native-vector-icons/Fonts/MaterialIcons.ttf", "font/ttf"],
 };
 
 createServer(async (req, res) => {

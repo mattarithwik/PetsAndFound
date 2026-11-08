@@ -7,5 +7,8 @@
     "start": "npm --prefix services/agent start",
     "worker": "npm --prefix services/agent run worker",
     "demo": "node services/agent/node_modules/typescript/bin/tsc -p apps/demo && node apps/demo/dist/server.js"
+  },
+  "dependencies": {
+    "react-native-vector-icons": "^10.3.0"
   }
 }
