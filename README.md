@@ -1,10 +1,67 @@
-# PetsAndFound · PawSafe backend
+# PawSafe (PetsAndFound)
 
-PawSafe stores owner profiles, pets, reports, matches, shelter operations, notifications and simulation runs in SpacetimeDB. The TypeScript agent serves the authenticated HTTP API. A separate worker imports public records and processes persistent matching jobs. The Python vision service runs DINOv2 Base and keeps its derived vectors in a persistent SQLite index.
+PawSafe helps people prepare for disasters and reunite lost pets with their families. Pet owners can register pets, file lost or found reports, explore nearby shelters, review possible photo matches, and practice emergency decisions. Shelter staff can coordinate cases and capacity. An AI assistant can search available sources and guide a user through these workflows; people review consequential actions and proposed matches.
+
+This repository contains the Expo client, the authoritative SpacetimeDB module, a TypeScript API and background worker, and a Python image matching service. The [architecture plan](PLAN.md) describes the broader product design; this README describes the code currently in the repository.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Client[Expo app: owners and shelters] -->|Identity, reads, reducers| DB[SpacetimeDB]
+  Client -->|Authenticated HTTP| API[TypeScript agent API]
+  API -->|Authorized operations| DB
+  API -->|Reasoning and tools| AI[NVIDIA Nemotron]
+  API -->|Photo upload and delivery| Media[Cloudinary]
+  Worker[TypeScript worker] -->|Jobs and source records| DB
+  Worker -->|Image comparisons| Vision[Python FastAPI + DINOv2]
+  Vision -->|Derived embeddings| Index[SQLite vector index]
+  Worker --> Sources[Public animal, social, shelter and weather sources]
+  API --> Sources
+```
+
+- **Client (`app/`):** React Native screens for owner, shelter, reporting, chat, maps, preparedness, and simulations. Expo Router handles navigation. The client talks to SpacetimeDB and the agent API.
+- **Application state (`spacetimedb/`):** Tables, reducers, authorization, and read procedures for users, pets, photos, reports, matches, shelters, cases, notifications, and simulations.
+- **API and orchestration (`services/agent/`):** Authenticated HTTP endpoints, Nemotron tool orchestration, photo upload signing, source integrations, and simulation endpoints. Its separate worker imports external records and processes matching jobs.
+- **Vision (`services/vision/`):** FastAPI service that preprocesses pet photos, generates DINOv2 embeddings, ranks candidates, and persists derived vectors in SQLite. Similarity is evidence for a possible match, not an identity decision.
+
+## Tech stack
+
+| Area | Technology |
+| --- | --- |
+| App | React Native, Expo 58, Expo Router, TypeScript, `react-native-maps` |
+| Database and access rules | SpacetimeDB 2.14.1 TypeScript module |
+| API and worker | Node.js, TypeScript, Zod |
+| AI assistant | NVIDIA Nemotron API |
+| Image matching | Python, FastAPI, PyTorch, DINOv2 Base, SQLite |
+| Photo storage | Cloudinary |
+| External information | RescueGroups, Bluesky, Dallas Open Data, OpenStreetMap/Photon, NOAA/NWS, FEMA |
+
+External APIs and model features require their corresponding credentials and services. The UI can be previewed separately, but end-to-end reporting and matching require the backend components.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `app/` | Expo mobile and web client |
+| `spacetimedb/` | Database module and domain operations |
+| `services/agent/` | HTTP API, agent orchestration, source providers, and worker |
+| `services/vision/` | Image embedding and similarity service |
+| `scripts/` | Backend verification |
+| `PLAN.md` | Detailed product and architecture plan |
 
 ## Start locally
 
-Use Node 24.22.1 or a compatible newer version, the SpacetimeDB 2.14.1 CLI, and either Docker or Python 3.12. Run from the repository root.
+For a client preview, use Node.js 24 and run from the repository root:
+
+```sh
+npm ci --prefix app
+npm run app:web
+```
+
+Expo prints the local web URL (normally `http://localhost:8081`). For a device or simulator, use `npm run app` instead. The client defaults to SpacetimeDB at port 3000 and the agent API at port 8080 on the development host; `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
+
+For the complete local stack, use Node.js 24, the SpacetimeDB 2.14.1 CLI, and either Docker or a Python environment with the dependencies in `services/vision/requirements.txt`. Run from the repository root.
 
 ```sh
 npm ci --prefix spacetimedb

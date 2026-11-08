@@ -58,11 +58,11 @@ export default function Chat() {
     return () => clearTimeout(timer);
   }, [messages.length, sending]);
 
-  const context = () => ({
+  const context = (attachedPhotos = photos) => ({
     ...(place ? { location: { latitude: place.latitude, longitude: place.longitude } } : {}),
     ...(place?.city ? { city: place.city } : {}),
     ...(params.reportId ? { reportId: params.reportId } : {}),
-    ...(photos.length ? { photos: photos.slice(-5).map(({ id, storageKey, animalCount }) => ({ id, storageKey, ...(animalCount ? { animalCount } : {}) })) } : {}),
+    ...(attachedPhotos.length ? { photos: attachedPhotos.slice(-5).map(({ id, storageKey, animalCount }) => ({ id, storageKey, ...(animalCount ? { animalCount } : {}) })) } : {}),
   });
 
   const deliver = async (request: ChatRequest) => {
@@ -71,8 +71,8 @@ export default function Chat() {
       const result = await agent.post<AgentResult>(token!, '/v1/agent/message', {
         requestId: request.requestId,
         message: request.text,
-        ...(previousRunId ? { previousRunId } : {}),
-        context: context(),
+        ...(request.previousRunId ? { previousRunId: request.previousRunId } : {}),
+        context: context(request.photos),
       });
       setPreviousRunId(result.runId);
       setMessages((list) => [...list.filter((m) => !(m.from === 'agent' && m.retry?.requestId === request.requestId)), { id: result.runId, from: 'agent', text: result.summary, result }]);
@@ -88,8 +88,8 @@ export default function Chat() {
 
   const send = (value = text) => {
     const trimmed = value.trim();
-    if (!trimmed || sending) return;
-    const request = { requestId: uuid(), text: trimmed };
+    if (!trimmed || sending || uploading) return;
+    const request: ChatRequest = { requestId: uuid(), text: trimmed, photos, previousRunId };
     setMessages((list) => [...list, { id: request.requestId, from: 'user', text: trimmed }]);
     setText('');
     deliver(request);
@@ -102,8 +102,15 @@ export default function Chat() {
         setNotice(undefined);
         try {
           const uploaded = await uploadPhoto(token!, image);
-          setPhotos((list) => [...list, { ...uploaded, uri: image.uri, animalCount: 1 }]);
+          const nextPhotos = [...photos, { ...uploaded, uri: image.uri, animalCount: 1 }];
+          setPhotos(nextPhotos);
           setMessages((list) => [...list, { id: uploaded.id, from: 'user', text: 'Attached a photo', photoUri: image.uri }]);
+          await deliver({
+            requestId: uuid(),
+            text: "I've uploaded a photo. Please continue helping me with this pet.",
+            photos: nextPhotos,
+            previousRunId,
+          });
         } catch (e) {
           setNotice(errorText(e));
         } finally {
@@ -166,7 +173,7 @@ export default function Chat() {
           </View>
         ) : null}
         <View style={local.composer}>
-          <Pressable onPress={attach} disabled={uploading} accessibilityLabel="Attach a photo" style={local.iconButton} hitSlop={6}>
+          <Pressable onPress={attach} disabled={uploading || sending} accessibilityLabel="Attach a photo" style={local.iconButton} hitSlop={6}>
             <Ionicons name={uploading ? 'hourglass-outline' : 'camera-outline'} size={24} color={colors.navy} />
           </Pressable>
           <TextInput
@@ -181,7 +188,7 @@ export default function Chat() {
             submitBehavior="submit"
             returnKeyType="send"
           />
-          <Pressable onPress={() => send()} disabled={!text.trim() || sending} accessibilityLabel="Send" style={[local.send, (!text.trim() || sending) && { opacity: 0.4 }]}>
+          <Pressable onPress={() => send()} disabled={!text.trim() || sending || uploading} accessibilityLabel="Send" style={[local.send, (!text.trim() || sending || uploading) && { opacity: 0.4 }]}>
             <Ionicons name="arrow-up" size={20} color={colors.white} />
           </Pressable>
         </View>

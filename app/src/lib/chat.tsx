@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 
 import type { AgentResult, UploadedPhoto } from './types';
 
-export type ChatRequest = { requestId: string; text: string };
+export type ChatRequest = { requestId: string; text: string; photos: ChatPhoto[]; previousRunId?: string };
 
 export type ChatMessage =
   | { id: string; from: 'user'; text: string; photoUri?: string }
