@@ -3,16 +3,88 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PawSafe agent playground</title>
+  <title>PawSafe</title>
   <link rel="stylesheet" href="/style.css">
   <script defer src="/app.js"></script>
 </head>
 <body>
+  <div class="auth-stage" id="auth-stage" aria-label="PawSafe welcome">
+    <div class="phone-frame">
+      <div class="phone-speaker" aria-hidden="true"></div>
+      <div class="phone-screen">
+        <div class="auth-track" id="auth-track">
+          <section class="splash-screen" aria-label="PawSafe loading">
+            <img class="brand-logo" src="/logo.png" alt="PawSafe">
+          </section>
+          <section class="welcome-screen" aria-labelledby="welcome-title">
+            <div class="welcome-logo">
+              <img class="brand-logo" src="/logo.png" alt="PawSafe">
+            </div>
+            <div class="welcome-content">
+              <h1 id="welcome-title">Hello!</h1>
+              <p class="question">are you a</p>
+              <div class="role-options" role="group" aria-label="Choose your account type">
+                <button class="role-button" type="button" data-role="Shelter Member">Shelter Member</button>
+                <p class="or-label">or</p>
+                <button class="role-button" type="button" data-role="Pet Owner">Pet Owner</button>
+              </div>
+              <button class="next-button" id="auth-next" type="button">next →</button>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="phone-home-indicator" aria-hidden="true"></div>
+    </div>
+  </div>
+  <div class="app-phone-frame" id="app-phone-frame" hidden>
+    <div class="phone-speaker" aria-hidden="true"></div>
+    <div class="phone-screen">
+      <div class="mobile-app" id="mobile-app">
+        <section class="mobile-view profile-view" data-view="profile">
+      <div class="profile-hero">
+        <p class="profile-kicker">Diff Animal!</p>
+        <img class="pet-avatar" src="/daisy-source.png" alt="Daisy the dog">
+        <button class="camera-button" type="button" aria-label="Change pet photo">●</button>
+        <h1>Daisy</h1>
+        <p class="profile-intro">Tell us about your pet so we can help keep them safe and locate them during emergencies</p>
+      </div>
+      <div class="profile-details">
+        <p>more photos:</p>
+        <div class="photo-strip"><span></span><span></span><span></span></div>
+        <button type="button">age</button>
+        <button type="button">identification features</button>
+        <button type="button">any health conditions</button>
+      </div>
+        </section>
+        <section class="mobile-view ai-view" data-view="ai" hidden>
+      <div class="ai-heading">
+        <div class="assistant-avatar"><img src="/doghead.png" alt=""></div>
+        <h1>Pawtricia</h1>
+      </div>
+      <div class="chat-card">
+        <div class="assistant-message">Hello! I am Pawtricia. How can I help you today?</div>
+        <button class="suggestion" type="button">Help me find Wilber.</button>
+      </div>
+        </section>
+        <section class="mobile-view settings-view" data-view="settings" hidden>
+          <h1>Settings</h1>
+          <button type="button">notifications</button>
+        </section>
+        <nav class="mobile-nav" aria-label="App navigation">
+          <button type="button" data-nav="profile" aria-label="Profile">⌂</button>
+          <button type="button" data-nav="ai" aria-label="Assistant">🎮</button>
+          <button type="button" data-nav="profile" aria-label="Pet profile">●</button>
+          <button type="button" data-nav="settings" aria-label="Settings">⚙</button>
+        </nav>
+      </div>
+    </div>
+    <div class="phone-home-indicator" aria-hidden="true"></div>
+  </div>
   <header>
     <div><strong>PawSafe</strong><span>Agent playground</span></div>
     <p id="service-status" role="status">Checking services…</p>
   </header>
-  <main>
+  <main class="app-shell" id="app-shell" hidden>
     <aside>
       <section>
         <h2>Session</h2>

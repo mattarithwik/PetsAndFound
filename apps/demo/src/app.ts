@@ -24,6 +24,12 @@
   const status = (id: string, value: string) => {
     element(id).textContent = value;
   };
+  const authStage = element<HTMLDivElement>("auth-stage");
+  const authTrack = element<HTMLDivElement>("auth-track");
+  const authNext = element<HTMLButtonElement>("auth-next");
+  const roleButtons = document.querySelectorAll<HTMLButtonElement>(".role-button");
+  const mobileApp = element<HTMLDivElement>("mobile-app");
+  const appPhoneFrame = element<HTMLDivElement>("app-phone-frame");
   const token = () => input("token").value.trim();
   input("token").value = sessionStorage.getItem("pawsafe-demo-token") || "";
   let database = "pawsafe";
@@ -31,6 +37,33 @@
   let uploadedPhoto: Photo | undefined;
   let pendingPet: { id: string; name: string; species: string } | undefined;
   let lastAttempt: { fingerprint: string; payload: object } | undefined;
+
+  roleButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      roleButtons.forEach((roleButton) => roleButton.classList.remove("is-selected"));
+      button.classList.add("is-selected");
+    });
+  });
+
+  authNext.addEventListener("click", () => {
+    const selectedRole = document.querySelector<HTMLButtonElement>(".role-button.is-selected");
+    if (!selectedRole) {
+      roleButtons[0]?.focus();
+      return;
+    }
+    authStage.hidden = true;
+    appPhoneFrame.hidden = false;
+    document.title = `PawSafe · ${selectedRole.dataset.role}`;
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = button.dataset.nav;
+      document.querySelectorAll<HTMLElement>(".mobile-view").forEach((view) => {
+        view.hidden = view.dataset.view !== target;
+      });
+    });
+  });
 
   async function request(target: Target, path: string, method = "GET", body?: unknown, secret?: string) {
     const headers: Record<string, string> = {};
