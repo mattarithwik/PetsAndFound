@@ -33,7 +33,7 @@ type Draft = {
   uploaded: (UploadedPhoto | null)[];
   observedAt?: string;
   reviewing?: boolean;
-  assessment?: { environment: string; visibleConcerns: string[]; uncertainty: string };
+  assessment?: { environment: string; visibleConcerns: string[]; uncertainty: string; nextSteps?: string[] };
 };
 
 const fresh = (): Draft => ({
@@ -119,7 +119,12 @@ export default function FoundReport() {
           ...(draft.singleAnimal ? { animalCount: 1 } : {}),
         })),
       });
-      if (draft.assessment) await db.call(token!, 'save_scene_assessment', { reportId: draft.reportId, ...draft.assessment });
+      if (draft.assessment) await db.call(token!, 'save_scene_assessment', {
+        reportId: draft.reportId,
+        environment: draft.assessment.environment,
+        visibleConcerns: draft.assessment.visibleConcerns,
+        uncertainty: draft.assessment.uncertainty,
+      });
       feedback('success');
       const reportId = draft.reportId;
       await clear();
@@ -153,6 +158,10 @@ export default function FoundReport() {
           <KeyValue label="Notes" value={draft.description || 'None'} />
           {draft.assessment ? <KeyValue label="Scene assist" value={draft.assessment.environment} /> : null}
         </Card>
+        {draft.assessment?.nextSteps?.length ? <Card tone="info">
+          <SectionTitle>Suggested next steps</SectionTitle>
+          {draft.assessment.nextSteps.map((step, index) => <Muted key={index}>{index + 1}. {step}</Muted>)}
+        </Card> : null}
         <Notice title="What happens next">
           {draft.images.length
             ? 'Verified shelters can accept this case. PawSafe will compare the photos with registered lost pets.'
@@ -172,7 +181,7 @@ export default function FoundReport() {
       {guidance}
       <SectionTitle>Photos</SectionTitle>
       <Button label={cameraOpen ? 'Close scene assist' : 'Open scene assist'} variant="outline" icon="camera-outline" onPress={() => setCameraOpen(!cameraOpen)} />
-      {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => setImage(0, image)} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty } })} /> : null}
+      {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => setImage(0, image)} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty, nextSteps: assessment.nextSteps } })} /> : null}
       <Muted>Add up to three photos of the animal and its markings. You can report an injured or endangered animal without a photo.</Muted>
       <Row style={{ flexWrap: 'nowrap' }}>
         {[0, 1, 2].map((i) => (

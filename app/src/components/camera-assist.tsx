@@ -22,6 +22,7 @@ export function CameraAssist({ condition, onPhoto, onAssessment }: { condition: 
   const working = useRef(false);
   const [ready, setReady] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [assessment, setAssessment] = useState<Assessment>();
   const [lastFrame, setLastFrame] = useState<string>();
   const [error, setError] = useState<string>();
@@ -43,6 +44,8 @@ export function CameraAssist({ condition, onPhoto, onAssessment }: { condition: 
   }, [condition, token]);
   const choose = async () => {
     try {
+      setScanning(false);
+      setCameraOpen(false);
       const image = await pickImage('library');
       if (!image) return;
       // The vision endpoint accepts JPEG and caps the base64 payload at 2 MB.
@@ -50,6 +53,7 @@ export function CameraAssist({ condition, onPhoto, onAssessment }: { condition: 
       const rendered = await context.renderAsync();
       const prepared = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.55, base64: true });
       if (!prepared.base64 || prepared.base64.length > 2_000_000) throw new Error('This photo is too large to analyze. Choose a smaller photo.');
+      setLastFrame(image.uri);
       onPhoto(image);
       await assess(prepared.base64, image.uri);
     } catch (e) { setError(errorText(e)); }
@@ -73,13 +77,14 @@ export function CameraAssist({ condition, onPhoto, onAssessment }: { condition: 
     <Muted>Choose a photo for visible hazards and next steps. Confirm the animal’s condition yourself.</Muted>
     <Button label={busy ? 'Analyzing photo…' : 'Choose photo and get next steps'} disabled={busy} onPress={() => { void choose(); }} />
     {lastFrame ? <Image source={{ uri: lastFrame }} contentFit="cover" style={{ width: '100%', height: 180, borderRadius: 16 }} /> : null}
-    {!permission ? <Muted>Checking camera access…</Muted> : !permission.granted
+    <Button label={cameraOpen ? 'Close live camera' : 'Use live camera instead'} variant="ghost" onPress={() => { setScanning(false); setCameraOpen(!cameraOpen); }} />
+    {cameraOpen && (!permission ? <Muted>Checking camera access…</Muted> : !permission.granted
       ? <Button label="Allow live camera access" variant="outline" onPress={() => { void requestPermission(); }} />
       : <>
         <CameraView ref={camera} facing="back" onCameraReady={() => setReady(true)} style={{ width: '100%', height: 260, borderRadius: 16, overflow: 'hidden' }} />
         <Button label={scanning ? 'Stop live scans' : 'Start live scans'} variant="outline" onPress={() => setScanning(!scanning)} />
         <Button label="Check this view" disabled={!ready || busy} onPress={() => { void analyze(); }} />
-      </>}
+      </>)}
     {lastFrame ? <Button label="Use this photo in report" variant="ghost" onPress={() => { onPhoto({ uri: lastFrame, mimeType: 'image/jpeg' }); feedback('success'); }} /> : null}
     <ErrorNote error={error} />
     {assessment ? <Card tone="info">
