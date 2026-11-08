@@ -31,6 +31,7 @@ const files: Record<string, [string, string]> = {
   "/style.css": ["../style.css", "text/css; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
   "/logo.png": ["../../../public/logo.png", "image/png"],
+  "/doghead.png": ["../../../public/doghead.png", "image/png"],
   "/daisy-source.png": ["../../../public/daisy-source.png", "image/png"],
   "/fonts/MaterialIcons.ttf": ["../../../node_modules/react-native-vector-icons/Fonts/MaterialIcons.ttf", "font/ttf"],
 };

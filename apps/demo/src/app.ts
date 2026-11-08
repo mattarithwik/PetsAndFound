@@ -36,6 +36,18 @@
   const petPhotoInput = element<HTMLInputElement>("pet-photo-input");
   const petAvatarPreview = element<HTMLDivElement>("pet-avatar-preview");
   const petDetailsForm = element<HTMLFormElement>("pet-details-form");
+  const mobileChatForm = element<HTMLFormElement>("mobile-chat-form");
+  const mobileChatInput = element<HTMLInputElement>("mobile-chat-input");
+  const mobileChatMessages = element<HTMLDivElement>("mobile-chat-messages");
+  const mobileChatStatus = element<HTMLParagraphElement>("mobile-chat-status");
+  const mobileChatCamera = element<HTMLButtonElement>("mobile-chat-camera");
+  const reportForm = element<HTMLFormElement>("report-form");
+  const reportCameraButton = element<HTMLButtonElement>("report-camera-button");
+  const reportCameraInput = element<HTMLInputElement>("report-camera-input");
+  const reportPreview = element<HTMLDivElement>("report-preview");
+  const reportSendButton = element<HTMLButtonElement>("report-send-button");
+  const reportStatus = element<HTMLParagraphElement>("report-status");
+  const savedReportsList = element<HTMLDivElement>("saved-reports-list");
   const token = () => input("token").value.trim();
   input("token").value = sessionStorage.getItem("pawsafe-demo-token") || "";
   let database = "pawsafe";
@@ -113,6 +125,116 @@
     }
     petDetailsForm.querySelector(".save-pet-button")?.replaceChildren(document.createTextNode("Saved"));
   });
+  mobileChatForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const message = mobileChatInput.value.trim();
+    if (!message) {
+      mobileChatStatus.textContent = "Type a message first.";
+      mobileChatInput.focus();
+      return;
+    }
+    mobileChatStatus.textContent = "";
+    const messageBubble = document.createElement("div");
+    messageBubble.className = "user-message";
+    messageBubble.textContent = message;
+    mobileChatMessages.append(messageBubble);
+    mobileChatInput.value = "";
+    mobileChatMessages.scrollTop = mobileChatMessages.scrollHeight;
+    mobileChatInput.focus();
+  });
+  let reportPhoto: { dataUrl: string; name: string } | undefined;
+  let activeReportId: string | undefined;
+  mobileChatCamera.addEventListener("click", () => reportCameraInput.click());
+  const storedReports = () => {
+    try {
+      return JSON.parse(localStorage.getItem("pawsafe-reports") || "[]") as Array<{
+        id: string;
+        type: string;
+        notes: string;
+        location: string;
+        createdAt: string;
+        photo?: string;
+        shared: boolean;
+      }>;
+    } catch {
+      return [];
+    }
+  };
+  const renderReports = () => {
+    const reports = storedReports();
+    savedReportsList.replaceChildren();
+    if (!reports.length) {
+      const empty = document.createElement("p");
+      empty.className = "saved-reports-empty";
+      empty.textContent = "Your captured reports will appear here.";
+      savedReportsList.append(empty);
+      return;
+    }
+    reports.slice().reverse().forEach((report) => {
+      const card = document.createElement("article");
+      card.className = "saved-report";
+      const title = document.createElement("strong");
+      title.textContent = report.type.replaceAll("-", " ");
+      const detail = document.createElement("small");
+      detail.textContent = `${new Date(report.createdAt).toLocaleString()} · ${report.shared ? "Sent to responders" : "Ready to send"}`;
+      card.append(title, detail);
+      savedReportsList.append(card);
+    });
+  };
+  reportCameraButton.addEventListener("click", () => reportCameraInput.click());
+  reportCameraInput.addEventListener("change", () => {
+    const file = reportCameraInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result !== "string") return;
+      reportPhoto = { dataUrl: reader.result, name: file.name };
+      reportPreview.style.backgroundImage = `url("${reader.result}")`;
+      reportPreview.classList.add("has-photo");
+      reportPreview.querySelectorAll("span, strong, small").forEach((item) => item.remove());
+      const captured = document.createElement("span");
+      captured.textContent = "Photo captured";
+      reportPreview.append(captured);
+      reportSendButton.disabled = false;
+      reportStatus.textContent = "Photo ready. Add details before sending.";
+    });
+    reader.readAsDataURL(file);
+  });
+  reportForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!reportPhoto) {
+      reportStatus.textContent = "Open the camera and capture a photo first.";
+      reportCameraButton.focus();
+      return;
+    }
+    const report = {
+      id: crypto.randomUUID(),
+      type: input("report-type").value,
+      notes: text("report-notes").value.trim(),
+      location: input("report-location").value.trim(),
+      createdAt: new Date().toISOString(),
+      photo: reportPhoto.dataUrl,
+      shared: false,
+    };
+    localStorage.setItem("pawsafe-reports", JSON.stringify([...storedReports(), report]));
+    activeReportId = report.id;
+    reportStatus.textContent = "Report saved and ready to send.";
+    reportSendButton.disabled = false;
+    renderReports();
+  });
+  reportSendButton.addEventListener("click", () => {
+    if (!activeReportId) {
+      reportStatus.textContent = "Save the report before sending it.";
+      return;
+    }
+    const reports = storedReports().map((report) =>
+      report.id === activeReportId ? { ...report, shared: true } : report,
+    );
+    localStorage.setItem("pawsafe-reports", JSON.stringify(reports));
+    reportStatus.textContent = "Report sent to shelter and emergency responders.";
+    renderReports();
+  });
+  renderReports();
   const notificationsEnabled = element<HTMLInputElement>("notifications-enabled");
   const notificationInputs = document.querySelectorAll<HTMLInputElement>(".notification-options input");
   notificationsEnabled.addEventListener("change", () => {
@@ -129,6 +251,7 @@
   document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) => {
     button.addEventListener("click", () => {
       const target = button.dataset.nav;
+      mobileApp.classList.toggle("chat-open", target === "ai");
       document.querySelectorAll<HTMLElement>(".mobile-view").forEach((view) => {
         view.hidden = view.dataset.view !== target;
       });

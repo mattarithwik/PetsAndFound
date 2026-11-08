@@ -79,12 +79,6 @@
             <div class="match-row"><span class="match-avatar">B</span><span><strong>Buddy</strong><small>85% match</small></span><em>Potential</em></div>
             <div class="match-row"><span class="match-avatar">W</span><span><strong>Whiskers</strong><small>92% match</small></span><em>Potential</em></div>
           </main>
-          <nav class="mobile-nav shelter-nav" aria-label="Shelter navigation">
-              <button type="button" aria-label="Dashboard"><span class="rn-icon" aria-hidden="true">&#xe88a;</span></button>
-              <button type="button" aria-label="Game"><span class="rn-icon" aria-hidden="true">&#xe30f;</span></button>
-              <button type="button" aria-label="Pet profile"><span class="rn-icon" aria-hidden="true">&#xe853;</span></button>
-              <button type="button" aria-label="Settings"><span class="rn-icon" aria-hidden="true">&#xe8b8;</span></button>
-          </nav>
         </section>
         <section class="mobile-view home-view" data-view="home" hidden>
           <header class="home-header">
@@ -105,6 +99,41 @@
               <button type="button"><span class="gallery-pet">🐩</span><strong>Waffles</strong><small>72% similar</small></button>
             </div>
           </main>
+        </section>
+        <section class="mobile-view report-view" data-view="report" hidden>
+          <header class="report-header">
+            <button class="report-back" type="button" data-nav="home" aria-label="Back to home">‹</button>
+            <div><p>New report</p><h1>Pet safety scan</h1></div>
+          </header>
+          <form class="report-form" id="report-form">
+            <div class="report-preview" id="report-preview">
+              <span class="rn-icon" aria-hidden="true">&#xe412;</span>
+              <strong>Capture the surroundings</strong>
+              <small>Include the pet, nearby hazards, and recognizable landmarks.</small>
+            </div>
+            <input id="report-camera-input" type="file" accept="image/*" capture="environment" hidden>
+            <button class="report-camera-button" id="report-camera-button" type="button"><span class="rn-icon" aria-hidden="true">&#xe3b0;</span> Open camera</button>
+            <label for="report-type">What did you find?</label>
+            <select id="report-type">
+              <option value="injured-pet">Injured pet</option>
+              <option value="lost-pet">Lost pet</option>
+              <option value="found-pet">Found pet</option>
+              <option value="unsafe-animal">Animal in danger</option>
+            </select>
+            <label for="report-notes">Notes for responders</label>
+            <textarea id="report-notes" rows="2" placeholder="Describe the pet, injuries, or immediate hazards"></textarea>
+            <label for="report-location">Location or landmark</label>
+            <input id="report-location" type="text" placeholder="Street, park, or nearby landmark">
+            <div class="report-actions">
+              <button class="report-save-button" type="submit">Save report</button>
+              <button class="report-send-button" id="report-send-button" type="button" disabled>Send to responders</button>
+            </div>
+            <p class="report-status" id="report-status" role="status"></p>
+          </form>
+          <section class="saved-reports" aria-labelledby="saved-reports-title">
+            <h2 id="saved-reports-title">Saved reports</h2>
+            <div id="saved-reports-list"><p class="saved-reports-empty">Your captured reports will appear here.</p></div>
+          </section>
         </section>
         <section class="mobile-view profile-view" data-view="profile">
          <div class="profile-hero">
@@ -142,8 +171,18 @@
         <h1>Pawtricia</h1>
       </div>
       <div class="chat-card">
-        <div class="assistant-message">Hello! I am Pawtricia. How can I help you today?</div>
-        <button class="suggestion" type="button">Help me find Wilber.</button>
+        <div class="mobile-chat-messages" id="mobile-chat-messages" aria-live="polite">
+          <div class="assistant-message">Hello! I am Pawtricia. How can I help you today?</div>
+        </div>
+        <form class="mobile-chat-form" id="mobile-chat-form">
+          <label class="sr-only" for="mobile-chat-input">Message Pawtricia</label>
+          <input id="mobile-chat-input" type="text" autocomplete="off" placeholder="Type a message..." maxlength="500">
+          <button class="mobile-chat-camera" id="mobile-chat-camera" type="button" aria-label="Open camera">
+            <span class="rn-icon" aria-hidden="true">&#xe3b0;</span>
+          </button>
+          <button type="submit" aria-label="Send message">↑</button>
+        </form>
+        <p class="mobile-chat-status" id="mobile-chat-status" role="status"></p>
       </div>
         </section>
         <section class="mobile-view settings-view" data-view="settings" hidden>
@@ -177,6 +216,9 @@
             </section>
           </div>
         </section>
+        <button class="chat-launcher" id="chat-launcher" type="button" data-nav="ai" aria-label="Open Pawtricia chat">
+          <span class="rn-icon" aria-hidden="true">&#xe0b7;</span>
+        </button>
         <nav class="mobile-nav" aria-label="App navigation">
           <button type="button" data-nav="home" aria-label="Home"><span class="rn-icon" aria-hidden="true">&#xe88a;</span></button>
           <button type="button" data-nav="ai" aria-label="Game"><span class="rn-icon" aria-hidden="true">&#xe30f;</span></button>

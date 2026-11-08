@@ -1,0 +1,109 @@
+{
+  "planHash": "5bea2298b546793ed68c3e86162942005fa0f48734fdb239cd061e7deb60c0ae",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-11-08T01:38:33.5192511Z",
+  "retryCount": 1,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 2185,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "demo-typescript-build",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "",
+        "durationMs": 1014
+      },
+      {
+        "name": "demo-server-serves-home",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n\u003C!doctype html\u003E\r\n\u003Chtml lang=\u0022en\u0022\u003E\r\n\u003Chead\u003E\r\n  \u003Cmeta charset=\u0022utf-8\u0022\u003E\r\n  \u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022\u003E\r\n  \u003Ctitle\u003EPawSafe\u003C/title\u003E\r\n  \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/style.css\u0022\u003E\r\n  \u003Cscript defer src=\u0022/app.js\u0022\u003E\u003C/script\u003E\r\n\u003C/head\u003E\r\n\u003Cbody\u003E\r\n  \u003Cdiv class=\u0022auth-stage\u0022 id=\u0022auth-stage\u0022 aria-label=\u0022PawSafe welcome\u0022\u003E\r\n    \u003Cdiv class=\u0022phone-frame\u0022\u003E\r\n      \u003Cdiv class=\u0022phone-speaker\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/div\u003E\r\n      \u003Cdiv class=\u0022phone-screen\u0022\u003E\r\n        \u003Cdiv class=\u0022auth-track\u0022 id=\u0022auth-track\u0022\u003E\r\n          \u003Csection class=\u0022splash-screen\u0022 aria-label=\u0022PawSafe loading\u0022\u003E\r\n            \u003Cimg class=\u0022brand-logo\u0022 src=\u0022/logo.png\u0022 alt=\u0022PawSafe\u0022\u003E\r\n          \u003C/section\u003E\r\n          \u003Csection class=\u0022welcome-screen\u0022 aria-labelledby=\u0022welcome-title\u0022\u003E\r\n            \u003Cdiv class=\u0022welcome-content\u0022\u003E\r\n              \u003Ch1 id=\u0022welcome-title\u0022\u003EHello!\u003C/h1\u003E\r\n              \u003Cp class=\u0022question\u0022\u003Eare you a\u003C/p\u003E\r\n              \u003Cdiv class=\u0022role-options\u0022 role=\u0022group\u0022 aria-label=\u0022Choose your account type\u0022\u003E\r\n                \u003Cbutton class=\u0022role-button\u0022 type=\u0022button\u0022 data-role=\u0022Shelter Member\u0022\u003EShelter Member\u003C/button\u003E\r\n                \u003Cp class=\u0022or-label\u0022\u003Eor\u003C/p\u003E\r\n                \u003Cbutton class=\u0022role-button\u0022 type=\u0022button\u0022 data-role=\u0022Pet Owner\u0022\u003EPet Owner\u003C/button\u003E\r\n              \u003C/div\u003E\r\n              \u003Cbutton class=\u0022next-button\u0022 id=\u0022auth-next\u0022 type=\u0022button\u0022\u003Enext \u2192\u003C/button\u003E\r\n            \u003C/div\u003E\r\n          \u003C/section\u003E\r\n        \u003C/div\u003E\r\n      \u003C/div\u003E\r\n      \u003Cdiv class=\u0022phone-home-indicator\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/div\u003E\r\n    \u003C/div\u003E\r\n  \u003C/div\u003E\r\n  \u003Cdiv class=\u0022app-phone-frame\u0022 id=\u0022app-phone-frame\u0022 hidden\u003E\r\n    \u003Cdiv class=\u0022phone-speaker\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/div\u003E\r\n    \u003Cdiv class=\u0022phone-screen\u0022\u003E\r\n      \u003Cdiv class=\u0022mobile-app\u0022 id=\u0022mobile-app\u0022\u003E\r\n        \u003Csection class=\u0022mobile-view shelter-login-view\u0022 data-view=\u0022shelter-login\u0022 hidden\u003E\r\n          \u003Cdiv class=\u0022shelter-login-card\u0022\u003E\r\n            \u003Cp class=\u0022shelter-eyebrow\u0022\u003EPawSafe\u003C/p\u003E\r\n            \u003Ch1\u003EShelterDash\u003C/h1\u003E\r\n            \u003Cp\u003ESign in to coordinate care and help injured animals get home safely.\u003C/p\u003E\r\n            \u003Cform id=\u0022shelter-login-form\u0022\u003E\r\n              \u003Clabel for=\u0022shelter-password\u0022\u003EPassword\u003C/label\u003E\r\n              \u003Cinput id=\u0022shelter-password\u0022 type=\u0022password\u0022 autocomplete=\u0022current-password\u0022 required placeholder=\u0022Enter your password\u0022\u003E\r\n              \u003Cp class=\u0022login-error\u0022 id=\u0022shelter-login-error\u0022 role=\u0022alert\u0022 hidden\u003EEnter your shelter password to continue.\u003C/p\u003E\r\n              \u003Cbutton type=\u0022submit\u0022\u003ELog in\u003C/button\u003E\r\n            \u003C/form\u003E\r\n          \u003C/div\u003E\r\n        \u003C/section\u003E\r\n        \u003Csection class=\u0022mobile-view shelter-dashboard-view\u0022 data-view=\u0022shelter-dashboard\u0022 hidden\u003E\r\n          \u003Cheader class=\u0022shelter-header\u0022\u003E\r\n            \u003Cspan class=\u0022shelter-profile-icon\u0022 aria-hidden=\u0022true\u0022\u003E\u25CF\u003C/span\u003E\r\n            \u003Cstrong\u003EShelterDash\u003C/strong\u003E\r\n          \u003C/header\u003E\r\n          \u003Cmain class=\u0022shelter-dashboard\u0022\u003E\r\n            \u003Csection class=\u0022report-card\u0022\u003E\r\n              \u003Cdiv\u003E\u003Cstrong\u003ENew Reports\u003C/strong\u003E\u003Cp\u003ENew animal reports need review.\u003C/p\u003E\u003C/div\u003E\r\n              \u003Cspan\u003E\u002B12\u003C/span\u003E\r\n            \u003C/section\u003E\r\n            \u003Ch2\u003EInjured animals nearby\u003C/h2\u003E\r\n            \u003Csection class=\u0022injury-map\u0022 aria-label=\u0022Map showing injured animals\u0022\u003E\r\n              \u003Cdiv class=\u0022map-grid\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/div\u003E\r\n              \u003Cspan class=\u0022map-road road-one\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/span\u003E\r\n              \u003Cspan class=\u0022map-road road-two\u0022 aria-hidden=\u0022true\u0022\u003E\u003C/span\u003E\r\n              \u003Cbutton class=\u0022map-pin pin-one\u0022 type=\u0022button\u0022 aria-label=\u0022Injured animal near Oak Street\u0022\u003E\uD83D\uDC3E\u003C/button\u003E\r\n              \u003Cbutton class=\u0022map-pin pin-two\u0022 type=\u0022button\u0022 aria-label=\u0022Injured animal near Main Street\u0022\u003E\uD83D\uDC3E\u003C/button\u003E\r\n              \u003Cbutton class=\u0022map-pin pin-three\u0022 type=\u0022button\u0022 aria-label=\u0022Injured animal near the shelter\u0022\u003E\uD83D\uDC3E\u003C/button\u003E\r\n              \u003Cdiv class=\u0022map-label\u0022\u003E3 injured animals\u003Cbr\u003E\u003Csmall\u003Ewithin 5 miles\u003C/small\u003E\u003C/div\u003E\r\n            \u003C/section\u003E\r\n            \u003Ch2\u003EDisaster Care\u003C/h2\u003E\r\n            \u003Cdiv class=\u0022care-list\u0022\u003E\r\n              \u003Cbutton type=\u0022button\u0022\u003E\u003Cspan class=\u0022care-icon\u0022\u003E!\u003C/span\u003E\u003Cspan\u003E\u003Cstrong\u003EActive alerts\u003C/strong\u003E\u003Csmall\u003EView nearby emergencies\u003C/small\u003E\u003C/span\u003E\u003Cb\u003E\u2192\u003C/b\u003E\u003C/button\u003E\r\n         \n\u2026[truncated]",
+        "durationMs": 2601
+      },
+      {
+        "name": "agent-tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E test\r\n\u003E npm --prefix services/agent test\r\n\r\n\r\n\u003E test\r\n\u003E npm run build \u0026\u0026 node --test dist/test/workflows.test.js dist/providers/providers.test.js\r\n\r\n\r\n\u003E build\r\n\u003E tsc -p tsconfig.json\r\n\r\n\u2714 configured Bluesky search uses the account PDS and AppView proxy, and preserves rejected access (16.9035ms)\r\n\u2714 social discovery deduplicates posts, classifies from their text and retains no private contact text or guessed coordinates (3.7874ms)\r\n\u2714 removal requires an explicit result for the requested public post (1.6407ms)\r\n\u2714 processing needs publisher permission and an exact HTTPS host (0.9832ms)\r\n\u2714 RescueGroups joins JSON:API included rows by type and id; a listing does not establish a found sighting (1.3872ms)\r\n\u2714 directory corroborates independent sources, keeps co-located organizations separate, and preserves successes on partial outage (4.3144ms)\r\n\u2714 Dallas rows keep distinct feeds, convert Central wall time, and discard operational and street details (2.1604ms)\r\n\u2714 point alerts suppress test, expired and cancelled records and coalesce nearby requests to the same point (0.7496ms)\r\n\u2714 historical declarations retain dates and FEMA attribution (0.5916ms)\r\n\u2714 RescueGroups withdrawal checks require the exact entity and its related status or a documented entity 404 (4.4915ms)\r\nMatching job remains pending: a Error\r\n\u2714 a report draft survives a new request and duplicate confirmations create one report (2.8001ms)\r\n\u2714 untrusted tool arguments cannot create reports or select an identity (0.6994ms)\r\n\u2714 all simulated hazards branch and score locally; progress retries do not advance twice (1.1351ms)\r\n\u2714 matching limits evidence to enrolled photos and never assumes a notification threshold (0.4768ms)\r\n\u2714 failed jobs remain pending while independent jobs can complete (1.0525ms)\r\n\u2714 one missing reference cannot prevent the other owner\u0027s proposal (0.2416ms)\r\n\u2714 private image upload signs an owner-scoped key and short-lived download (0.74ms)\r\n\u2139 tests 17\r\n\u2139 suites 0\r\n\u2139 pass 17\r\n\u2139 fail 0\r\n\u2139 cancelled 0\r\n\u2139 skipped 0\r\n\u2139 todo 0\r\n\u2139 duration_ms 715.9595\r\n",
+        "durationMs": 5293,
+        "testResults": {
+          "testFramework": "unknown",
+          "runnerDetectedFrom": "none",
+          "testsTotal": 0,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": true
+        }
+      }
+    ],
+    "executions": [
+      {
+        "source": "setup[0]",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "ci"
+        ],
+        "cwd": "C:\\Workspace\\PetsAndFound",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "demo-typescript-build",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\node.EXE",
+        "args": [
+          "services/agent/node_modules/typescript/bin/tsc",
+          "-p",
+          "apps/demo"
+        ],
+        "cwd": "C:\\Workspace\\PetsAndFound",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "demo-server-serves-home",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "demo"
+        ],
+        "cwd": "C:\\Workspace\\PetsAndFound",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "agent-tests-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "test"
+        ],
+        "cwd": "C:\\Workspace\\PetsAndFound",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}
