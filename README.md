@@ -158,7 +158,7 @@ Send the SpacetimeDB user token as `Authorization: Bearer <token>` on the Node A
 | `POST /v1/simulations` | Use `{id,scenarioId,animal?}` with a client-generated UUID. Scenarios are `tornado`, `wildfire`, `winter_storm`, `earthquake`, `flood` and `heat`. Companions are `dog` (default), `cat`, `snake`, `bird` and `rabbit`. |
 | `GET /v1/simulations/<id>` | Current scene, companion, choices, revision, decision count and scores. New runs have four decisions. Earlier two- and three-decision runs retain their scores. |
 | `POST /v1/simulations/<id>/choices` | `{choiceId,revision}` from the current scene. |
-| `POST /v1/simulations/<id>/feedback` | `{}` for a completed run. Nemotron explains the predefined outcomes. |
+| `POST /v1/simulations/<id>/feedback` | `{}` for a completed run. Nemotron explains the recorded decisions and score; `generatedBy` is `nemotron`, and `source` remains the scenario guidance URL. |
 | `POST /v1/response/plan` | `{caseId}` for a case visible to the caller. Queues a PawTricia operations run and returns `{caseId,status:"queued"}`. |
 | `POST /v1/scene/assess` | `{imageBase64,condition}`. Uses the configured vision model to describe one camera frame without changing reporter urgency. |
 

@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Actor, Job, Report, Store } from "../db.js";
 import { message, confirm } from "../orchestrator.js";
-import { hazards, play, startSimulation, step } from "../simulation.js";
+import {
+  feedback,
+  hazards,
+  play,
+  startSimulation,
+  step,
+} from "../simulation.js";
 import { rank } from "../matching.js";
 import { drain } from "../worker.js";
 import { downloadUrl, readImage, upload } from "../media.js";
@@ -30,7 +36,8 @@ function memory() {
         id = String(p.id);
       if (op === "save_agent_run") runs.set(id, p);
       else if (op === "record_tool_event") events.set(id, p);
-      else if (op === "create_lost_report" || op === "create_found_report") reports.set(id, p);
+      else if (op === "create_lost_report" || op === "create_found_report")
+        reports.set(id, p);
       else if (op === "record_simulation_result") {
         assert.equal(sims.get(id)?.revision || 0, p.expectedRevision);
         sims.set(id, { ...p, revision: Number(p.expectedRevision) + 1 });
@@ -54,7 +61,10 @@ test("a report draft survives a new request and duplicate confirmations create o
         type: "function",
         function: {
           name: "submit_lost_report",
-          arguments: JSON.stringify({ petId: "max", observedAt: "2026-01-12T12:00:00Z" }),
+          arguments: JSON.stringify({
+            petId: "max",
+            observedAt: "2026-01-12T12:00:00Z",
+          }),
         },
       },
     ],
@@ -67,7 +77,9 @@ test("a report draft survives a new request and duplicate confirmations create o
     }),
     draft,
   );
-  await assert.rejects(() => confirm({ ...actor, id: "b".repeat(64) }, draft.runId));
+  await assert.rejects(() =>
+    confirm({ ...actor, id: "b".repeat(64) }, draft.runId),
+  );
   const done = await confirm(actor, draft.runId);
   assert.equal(done.status, "completed");
   assert.deepEqual(await confirm(actor, draft.runId), done);
@@ -77,27 +89,31 @@ test("a report draft survives a new request and duplicate confirmations create o
 test("untrusted tool arguments cannot create reports or select an identity", async () => {
   const { actor, reports } = memory();
   let calls = 0;
-  const result = await message(actor, { requestId: randomUUID(), message: "file a report" }, async () => {
-    if (++calls === 1)
-      return {
-        tool_calls: [
-          {
-            id: "x",
-            type: "function",
-            function: {
-              name: "submit_found_report",
-              arguments: JSON.stringify({
-                species: "dog",
-                condition: "unknown",
-                observedAt: "2026-01-01T00:00:00Z",
-                userId: "other",
-              }),
+  const result = await message(
+    actor,
+    { requestId: randomUUID(), message: "file a report" },
+    async () => {
+      if (++calls === 1)
+        return {
+          tool_calls: [
+            {
+              id: "x",
+              type: "function",
+              function: {
+                name: "submit_found_report",
+                arguments: JSON.stringify({
+                  species: "dog",
+                  condition: "unknown",
+                  observedAt: "2026-01-01T00:00:00Z",
+                  userId: "other",
+                }),
+              },
             },
-          },
-        ],
-      };
-    return { content: "Select a photo and location." };
-  });
+          ],
+        };
+      return { content: "Select a photo and location." };
+    },
+  );
   assert.equal(result.actions[0].status, "failed");
   assert.equal(reports.size, 0);
 });
@@ -108,16 +124,29 @@ test("all simulated hazards branch and score locally; progress retries do not ad
     assert.notEqual(outcomes[0].scene?.id, outcomes[1].scene?.id);
     for (const c of start.scene!.choices) {
       const branch = play(hazard, [c.id]);
-      for (const end of branch.scene!.choices) assert.equal(play(hazard, [c.id, end.id]).completed, true);
+      for (const end of branch.scene!.choices)
+        assert.equal(play(hazard, [c.id, end.id]).completed, true);
     }
   }
   const { actor } = memory(),
     id = randomUUID();
   const initial = await startSimulation(actor, { id, scenarioId: "flood" });
-  const next = await step(actor, id, { choiceId: "leave", revision: initial.revision });
-  assert.deepEqual(await step(actor, id, { choiceId: "leave", revision: initial.revision }), next);
-  await assert.rejects(() => step(actor, id, { choiceId: "delay", revision: initial.revision }));
-  assert.equal((await step(actor, id, { choiceId: "turn", revision: next.revision })).score, 100);
+  const next = await step(actor, id, {
+    choiceId: "leave",
+    revision: initial.revision,
+  });
+  assert.deepEqual(
+    await step(actor, id, { choiceId: "leave", revision: initial.revision }),
+    next,
+  );
+  await assert.rejects(() =>
+    step(actor, id, { choiceId: "delay", revision: initial.revision }),
+  );
+  assert.equal(
+    (await step(actor, id, { choiceId: "turn", revision: next.revision }))
+      .score,
+    100,
+  );
 });
 test("new drills coordinate a fourth response decision and legacy runs keep their original ending", async () => {
   for (const hazard of hazards) {
@@ -132,18 +161,28 @@ test("new drills coordinate a fourth response decision and legacy runs keep thei
           assert.throws(() => play(hazard, [...choices, "extra"], animal, 3));
           return;
         }
-        for (const option of current.scene!.choices) paths([...choices, option.id]);
+        for (const option of current.scene!.choices)
+          paths([...choices, option.id]);
       };
       paths([]);
     }
   }
   const { actor } = memory();
   const id = randomUUID();
-  const initial = await startSimulation(actor, { id, scenarioId: "flood", animal: "bird" });
+  const initial = await startSimulation(actor, {
+    id,
+    scenarioId: "flood",
+    animal: "bird",
+  });
   assert.equal(initial.animal, "bird");
   assert.equal(initial.totalDecisions, 4);
-  assert.deepEqual(await startSimulation(actor, { id, scenarioId: "flood", animal: "bird" }), initial);
-  await assert.rejects(() => startSimulation(actor, { id, scenarioId: "flood", animal: "cat" }));
+  assert.deepEqual(
+    await startSimulation(actor, { id, scenarioId: "flood", animal: "bird" }),
+    initial,
+  );
+  await assert.rejects(() =>
+    startSimulation(actor, { id, scenarioId: "flood", animal: "cat" }),
+  );
   let run = initial;
   for (const choiceId of ["leave", "turn", "call", "coordinate"]) {
     run = await step(actor, id, { choiceId, revision: run.revision });
@@ -152,7 +191,48 @@ test("new drills coordinate a fourth response decision and legacy runs keep thei
   assert.equal(run.score, 100);
   assert.equal(run.animal, "bird");
   assert.equal(play("flood", ["leave", "turn"]).completed, true);
-  assert.equal(play("flood", ["leave", "turn", "call"], "dog", 2).completed, true);
+  assert.equal(
+    play("flood", ["leave", "turn", "call"], "dog", 2).completed,
+    true,
+  );
+});
+
+test("simulation feedback requests a short direct Nemotron answer grounded in the recorded decisions", async () => {
+  const { actor } = memory();
+  const id = randomUUID();
+  let run = await startSimulation(actor, {
+    id,
+    scenarioId: "flood",
+    animal: "dog",
+  });
+  for (const choiceId of ["leave", "turn", "call", "coordinate"]) {
+    run = await step(actor, id, { choiceId, revision: run.revision });
+  }
+  const text =
+    "You scored 100 out of 100 in this drill. Your decisions kept your dog with you and used official updates.";
+  const result = await feedback(actor, id, async (messages, tools, options) => {
+    assert.deepEqual(tools, []);
+    assert.deepEqual(options, { maxTokens: 256, timeoutMs: 15000 });
+    const evidence = JSON.parse(messages[1].content!);
+    assert.equal(evidence.score, run.score);
+    assert.equal(evidence.animal, "dog");
+    assert.deepEqual(evidence.decisions, run.history);
+    return { content: ` ${text} ` };
+  });
+  assert.equal(result.generatedBy, "nemotron");
+  assert.equal(result.source, run.source);
+  assert.equal(result.feedback, text);
+  await assert.rejects(
+    () => feedback(actor, id, async () => ({ content: null })),
+    /no simulation feedback/,
+  );
+  await assert.rejects(
+    () =>
+      feedback(actor, id, async () => {
+        throw new Error("Model unavailable");
+      }),
+    /Model unavailable/,
+  );
 });
 
 test("matching limits evidence to enrolled photos and never assumes a notification threshold", async () => {
@@ -194,7 +274,10 @@ test("matching limits evidence to enrolled photos and never assumes a notificati
       async <T>() =>
         ({
           model: "test",
-          candidates: [candidate, { ...candidate, matchingPhotoId: "private-other" }],
+          candidates: [
+            candidate,
+            { ...candidate, matchingPhotoId: "private-other" },
+          ],
         }) as T,
     );
     assert.equal(writes.length, 1);
@@ -245,7 +328,8 @@ test("one missing reference cannot prevent the other owner's proposal", async ()
     { type: "report", id: "found", species: "dog", photoIds: ["intake-photo"] },
     [lost("missing"), lost("ready")],
     async <T>(_path: string, input: object) => {
-      const petId = (input as { references: { petId: string }[] }).references[0].petId;
+      const petId = (input as { references: { petId: string }[] }).references[0]
+        .petId;
       if (petId === "missing") throw new Error("Image unavailable");
       return {
         model: "test",
@@ -278,5 +362,7 @@ test("private image upload signs an owner-scoped key and short-lived download", 
   assert.equal(signed.fields.type, "authenticated");
   assert.equal(signed.fields.overwrite, "false");
   assert.match(new URL(downloadUrl(signed.storageKey)).search, /expires_at=/);
-  await assert.rejects(() => readImage("http://127.0.0.1/image", new Set(["res.cloudinary.com"])));
+  await assert.rejects(() =>
+    readImage("http://127.0.0.1/image", new Set(["res.cloudinary.com"])),
+  );
 });

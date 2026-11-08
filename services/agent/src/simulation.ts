@@ -2,13 +2,31 @@ import { z } from "zod";
 import { ApiError, type Actor } from "./db.js";
 import { nemotron, type Model } from "./nemotron.js";
 
-import { animals, hazards, playDrill, type Animal, type DrillHazard, type Edition } from "./drills/rules.js";
+import {
+  animals,
+  hazards,
+  playDrill,
+  type Animal,
+  type DrillHazard,
+  type Edition,
+} from "./drills/rules.js";
 export { hazards, listScenarios } from "./drills/rules.js";
 
 type State = { choices: string[]; animal?: Animal; edition?: Edition };
-type Run = { id: string; scenarioId: DrillHazard; revision: number; state: State; score: number };
+type Run = {
+  id: string;
+  scenarioId: DrillHazard;
+  revision: number;
+  state: State;
+  score: number;
+};
 
-export function play(hazard: DrillHazard, choices: string[], animal: Animal = "dog", edition: Edition = 1) {
+export function play(
+  hazard: DrillHazard,
+  choices: string[],
+  animal: Animal = "dog",
+  edition: Edition = 1,
+) {
   try {
     return playDrill(hazard, choices, animal, edition);
   } catch {
@@ -16,12 +34,23 @@ export function play(hazard: DrillHazard, choices: string[], animal: Animal = "d
   }
 }
 export const startInput = z
-  .object({ id: z.string().uuid(), scenarioId: z.enum(hazards), animal: z.enum(animals).optional() })
+  .object({
+    id: z.string().uuid(),
+    scenarioId: z.enum(hazards),
+    animal: z.enum(animals).optional(),
+  })
   .strict();
-export async function startSimulation(actor: Actor, input: z.infer<typeof startInput>) {
+export async function startSimulation(
+  actor: Actor,
+  input: z.infer<typeof startInput>,
+) {
   const { id, scenarioId, animal = "dog" } = input;
   const existing = await actor.db.read<Run | null>("simulation_run", id);
-  if (existing && (existing.scenarioId !== scenarioId || (existing.state.animal ?? "dog") !== animal))
+  if (
+    existing &&
+    (existing.scenarioId !== scenarioId ||
+      (existing.state.animal ?? "dog") !== animal)
+  )
     throw new ApiError(409, "Run ID already used");
   if (!existing)
     await actor.system.write("record_simulation_result", {
@@ -41,21 +70,42 @@ export async function simulation(actor: Actor, id: string) {
     id,
     revision: run.revision,
     scenarioId: run.scenarioId,
-    ...play(run.scenarioId, run.state.choices, run.state.animal, run.state.edition),
+    ...play(
+      run.scenarioId,
+      run.state.choices,
+      run.state.animal,
+      run.state.edition,
+    ),
   };
 }
 export const stepInput = z
-  .object({ choiceId: z.string().min(1).max(32), revision: z.number().int().positive() })
+  .object({
+    choiceId: z.string().min(1).max(32),
+    revision: z.number().int().positive(),
+  })
   .strict();
-export async function step(actor: Actor, id: string, input: z.infer<typeof stepInput>) {
+export async function step(
+  actor: Actor,
+  id: string,
+  input: z.infer<typeof stepInput>,
+) {
   const run = await actor.db.read<Run | null>("simulation_run", id);
   if (!run) throw new ApiError(404, "Simulation run not found");
   if (run.revision !== input.revision) {
-    if (run.state.choices[input.revision - 1] === input.choiceId) return simulation(actor, id);
-    throw new ApiError(409, "Simulation has advanced; reload the current scene");
+    if (run.state.choices[input.revision - 1] === input.choiceId)
+      return simulation(actor, id);
+    throw new ApiError(
+      409,
+      "Simulation has advanced; reload the current scene",
+    );
   }
   const choices = [...run.state.choices, input.choiceId];
-  const outcome = play(run.scenarioId, choices, run.state.animal, run.state.edition);
+  const outcome = play(
+    run.scenarioId,
+    choices,
+    run.state.animal,
+    run.state.edition,
+  );
   await actor.system.write("record_simulation_result", {
     id,
     userId: actor.id,
@@ -66,20 +116,43 @@ export async function step(actor: Actor, id: string, input: z.infer<typeof stepI
   });
   return simulation(actor, id);
 }
-export async function feedback(actor: Actor, id: string, model: Model = nemotron) {
+export async function feedback(
+  actor: Actor,
+  id: string,
+  model: Model = nemotron,
+) {
   const result = await simulation(actor, id);
-  if (!result.completed) throw new ApiError(409, "Finish the simulation before requesting feedback");
+  if (!result.completed)
+    throw new ApiError(409, "Finish the simulation before requesting feedback");
   const answer = await model(
     [
       {
         role: "system",
         content:
-          "Explain these predefined educational outcomes in two sentences. This is a fictional pet safety simulation. Use only the supplied choice feedback and scores.",
+          "Give feedback on a completed fictional pet preparedness drill in exactly two short sentences, at most 70 words. State the supplied score out of 100 and discuss the player's actual decisions using only their supplied feedback. When a decision was unsafe, explain that lesson rather than praising it. Do not invent actions, add emergency advice, predict real outcomes, or guarantee safety. Return only the final plain-text feedback.",
       },
-      { role: "user", content: JSON.stringify(result) },
+      {
+        role: "user",
+        content: JSON.stringify({
+          scenario: result.title,
+          animal: result.animal,
+          score: result.score,
+          metrics: result.metrics,
+          decisions: result.history,
+        }),
+      },
     ],
     [],
+    { maxTokens: 256, timeoutMs: 15000 },
   );
-  if (!answer.content?.trim()) throw new ApiError(502, "Nemotron returned no simulation feedback");
-  return { category: "simulation", score: result.score, feedback: answer.content, source: result.source };
+  const content = answer.content?.trim();
+  if (!content)
+    throw new ApiError(502, "Nemotron returned no simulation feedback");
+  return {
+    category: "simulation",
+    score: result.score,
+    feedback: content,
+    source: result.source,
+    generatedBy: "nemotron",
+  };
 }
