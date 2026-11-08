@@ -17,9 +17,6 @@
             <img class="brand-logo" src="/logo.png" alt="PawSafe">
           </section>
           <section class="welcome-screen" aria-labelledby="welcome-title">
-            <div class="welcome-logo">
-              <img class="brand-logo" src="/logo.png" alt="PawSafe">
-            </div>
             <div class="welcome-content">
               <h1 id="welcome-title">Hello!</h1>
               <p class="question">are you a</p>
@@ -40,6 +37,55 @@
     <div class="phone-speaker" aria-hidden="true"></div>
     <div class="phone-screen">
       <div class="mobile-app" id="mobile-app">
+        <section class="mobile-view shelter-login-view" data-view="shelter-login" hidden>
+          <div class="shelter-login-card">
+            <p class="shelter-eyebrow">PawSafe</p>
+            <h1>ShelterDash</h1>
+            <p>Sign in to coordinate care and help injured animals get home safely.</p>
+            <form id="shelter-login-form">
+              <label for="shelter-password">Password</label>
+              <input id="shelter-password" type="password" autocomplete="current-password" required placeholder="Enter your password">
+              <p class="login-error" id="shelter-login-error" role="alert" hidden>Enter your shelter password to continue.</p>
+              <button type="submit">Log in</button>
+            </form>
+          </div>
+        </section>
+        <section class="mobile-view shelter-dashboard-view" data-view="shelter-dashboard" hidden>
+          <header class="shelter-header">
+            <span class="shelter-profile-icon" aria-hidden="true">●</span>
+            <strong>ShelterDash</strong>
+          </header>
+          <main class="shelter-dashboard">
+            <section class="report-card">
+              <div><strong>New Reports</strong><p>New animal reports need review.</p></div>
+              <span>+12</span>
+            </section>
+            <h2>Injured animals nearby</h2>
+            <section class="injury-map" aria-label="Map showing injured animals">
+              <div class="map-grid" aria-hidden="true"></div>
+              <span class="map-road road-one" aria-hidden="true"></span>
+              <span class="map-road road-two" aria-hidden="true"></span>
+              <button class="map-pin pin-one" type="button" aria-label="Injured animal near Oak Street">🐾</button>
+              <button class="map-pin pin-two" type="button" aria-label="Injured animal near Main Street">🐾</button>
+              <button class="map-pin pin-three" type="button" aria-label="Injured animal near the shelter">🐾</button>
+              <div class="map-label">3 injured animals<br><small>within 5 miles</small></div>
+            </section>
+            <h2>Disaster Care</h2>
+            <div class="care-list">
+              <button type="button"><span class="care-icon">!</span><span><strong>Active alerts</strong><small>View nearby emergencies</small></span><b>→</b></button>
+              <button type="button"><span class="care-icon">+</span><span><strong>Rescue resources</strong><small>Coordinate shelter support</small></span><b>→</b></button>
+            </div>
+            <h2>Potential Matches</h2>
+            <div class="match-row"><span class="match-avatar">B</span><span><strong>Buddy</strong><small>85% match</small></span><em>Potential</em></div>
+            <div class="match-row"><span class="match-avatar">W</span><span><strong>Whiskers</strong><small>92% match</small></span><em>Potential</em></div>
+          </main>
+          <nav class="mobile-nav shelter-nav" aria-label="Shelter navigation">
+            <button type="button" aria-label="Dashboard">⌂</button>
+            <button type="button" aria-label="Settings">⚙</button>
+            <button type="button" aria-label="Notifications">●</button>
+            <button type="button" aria-label="Resources">▣</button>
+          </nav>
+        </section>
         <section class="mobile-view profile-view" data-view="profile">
       <div class="profile-hero">
         <p class="profile-kicker">Diff Animal!</p>

@@ -30,6 +30,8 @@
   const roleButtons = document.querySelectorAll<HTMLButtonElement>(".role-button");
   const mobileApp = element<HTMLDivElement>("mobile-app");
   const appPhoneFrame = element<HTMLDivElement>("app-phone-frame");
+  const shelterLoginForm = element<HTMLFormElement>("shelter-login-form");
+  const shelterLoginError = element<HTMLParagraphElement>("shelter-login-error");
   const token = () => input("token").value.trim();
   input("token").value = sessionStorage.getItem("pawsafe-demo-token") || "";
   let database = "pawsafe";
@@ -53,7 +55,26 @@
     }
     authStage.hidden = true;
     appPhoneFrame.hidden = false;
+    appPhoneFrame.classList.toggle("shelter-mode", selectedRole.dataset.role === "Shelter Member");
+    document.querySelectorAll<HTMLElement>(".mobile-view").forEach((view) => {
+      view.hidden = view.dataset.view !== (selectedRole.dataset.role === "Shelter Member" ? "shelter-login" : "profile");
+    });
     document.title = `PawSafe · ${selectedRole.dataset.role}`;
+  });
+
+  shelterLoginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const password = input("shelter-password");
+    if (!password.value.trim()) {
+      shelterLoginError.hidden = false;
+      password.focus();
+      return;
+    }
+    shelterLoginError.hidden = true;
+    document.querySelectorAll<HTMLElement>(".mobile-view").forEach((view) => {
+      view.hidden = view.dataset.view !== "shelter-dashboard";
+    });
+    document.title = "PawSafe · ShelterDash";
   });
 
   document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) => {
