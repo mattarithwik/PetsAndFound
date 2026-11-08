@@ -169,7 +169,7 @@ export const inactive_external_listing = action((ctx, p) => {
   const r = ctx.db.external.id.find(id(p));
   if (!r || r.status === "removed" || r.status === "inactive") return;
   const source = object(JSON.parse(r.document));
-  if (source.source !== "rescuegroups") fail("Only a shelter listing can become inactive");
+  if (source.source !== "shelterluv") fail("Only a Shelterluv listing can become inactive");
   retireMedia(ctx, r.id, permittedUrls(source));
   const doc = {
     source: source.source,
@@ -185,7 +185,7 @@ export const inactive_external_listing = action((ctx, p) => {
 export const upsert_external_report = action((ctx, p) => {
   service(ctx);
   const key = id(p),
-    source = choice(p, "source", ["bluesky", "rescuegroups", "dallas", "partner"]);
+    source = choice(p, "source", ["bluesky", "shelterluv", "dallas", "partner"]);
   const sourceKey = JSON.stringify([source, str(p, "sourceRecordId", 2000)]),
     old = ctx.db.external.id.find(key);
   if (old && old.sourceKey !== sourceKey) fail("Source identifier conflict");
@@ -270,9 +270,14 @@ export const propose_match = action((ctx, p) => {
     )
       fail("Source record unavailable");
     const doc = JSON.parse(candidate.document);
+    const evidence = object(p.evidence);
+    const needsPhotoReview =
+      doc.source === "shelterluv" &&
+      doc.animalCount == null &&
+      evidence.reviewRequired === true;
     if (
       !doc.processingAllowed ||
-      doc.animalCount !== 1 ||
+      (doc.animalCount !== 1 && !needsPhotoReview) ||
       !["found", "shelter_listing"].includes(doc.reportType)
     )
       fail("Ineligible external candidate");

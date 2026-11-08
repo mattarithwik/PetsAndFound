@@ -89,7 +89,7 @@ export type Sourced<T> = { items: T[]; sources: SourceStatus[] };
 
 export type ExternalReport = {
   id: string;
-  source: 'bluesky' | 'rescuegroups' | 'dallas';
+  source: 'bluesky' | 'shelterluv' | 'dallas';
   sourceUrl: string;
   reportType: 'lost' | 'found' | 'shelter_listing' | 'unknown';
   species?: Species;
@@ -161,6 +161,8 @@ export type MatchEvidence = {
   components?: Record<string, unknown>;
   model?: string;
   sourceUrl?: string;
+  candidatePhotoUrl?: string;
+  reviewRequired?: boolean;
 };
 
 export type Match = {

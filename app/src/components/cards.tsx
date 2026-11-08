@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -68,7 +69,7 @@ export function SummaryCard({ summary, distance, onPress }: { summary: ReportSum
   );
 }
 
-const sourceLabel = { bluesky: 'Bluesky post', rescuegroups: 'Shelter listing', dallas: 'Dallas intake' } as const;
+const sourceLabel = { bluesky: 'Bluesky post', shelterluv: 'Shelterluv listing', dallas: 'Dallas intake' } as const;
 
 export function ExternalCard({ item }: { item: ExternalReport }) {
   return (
@@ -94,7 +95,9 @@ export function MatchCard({ match }: { match: Match }) {
   return (
     <Card onPress={() => router.push(`/matches/${encodeURIComponent(match.id)}`)}>
       <Row style={local.nowrap}>
-        <RemotePhoto photoId={match.evidence.candidatePhotoId} style={local.thumb} />
+        {match.evidence.candidatePhotoUrl
+          ? <Image source={{ uri: match.evidence.candidatePhotoUrl }} style={[local.thumb, { aspectRatio: 1 }]} contentFit="cover" />
+          : <RemotePhoto photoId={match.evidence.candidatePhotoId} style={local.thumb} />}
         <View style={styles.flex}>
           <Row>
             <Badge label={match.status === 'pending' ? 'Possible match' : match.status} tone={matchTone[match.status]} />

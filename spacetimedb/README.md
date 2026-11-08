@@ -71,7 +71,7 @@ Subscribers can query `report_summaries` and `shelters` directly, and subscribe 
 | `propose_match` | `lostReportId,candidateId,candidateType,score,evidence,notify`. Candidate type is `report` or `external`. Creates a pending review. |
 | `upsert_external_report` | Provider record including `id,source,sourceRecordId,sourceUrl,reportType,photoUrls,processingAllowed,status`. |
 | `remove_external_report` | `id`. Scrubs source data and related matches and notifications. A tombstone prevents stale imports from restoring it. |
-| `inactive_external_listing` | `id` of a RescueGroups listing. A fresh import with a later `ingestedAt` may reactivate the listing. |
+| `inactive_external_listing` | `id` of a Shelterluv listing. A fresh import with a later `ingestedAt` may reactivate the listing. |
 | `revoke_external_processing` | `id`. Withdraws photo permissions, clears review and derived matches, and preserves attribution. Later imports cannot override this revocation. |
 | `upsert_directory_shelter` | Normalized listing with `id,name,latitude,longitude,sourceIds,directorySources,directoryConfidence`, optional address/contact details. |
 | `upsert_disaster_alert` | Official alert object with `source: "NWS"` and `alertId`. |

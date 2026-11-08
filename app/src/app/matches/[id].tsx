@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -63,7 +64,9 @@ export default function MatchDetail() {
           <Muted>Registered pet</Muted>
         </View>
         <View style={local.side}>
-          <RemotePhoto photoId={m.evidence.candidatePhotoId} style={local.photo} />
+          {m.evidence.candidatePhotoUrl
+            ? <Image source={{ uri: m.evidence.candidatePhotoUrl }} style={local.photo} contentFit="cover" />
+            : <RemotePhoto photoId={m.evidence.candidatePhotoId} style={local.photo} />}
           <Muted>{m.candidateType === 'external' ? 'Public listing' : 'Found report'}</Muted>
         </View>
       </View>
@@ -81,6 +84,7 @@ export default function MatchDetail() {
       <Notice tone="warning" title="A score is not proof">
         Visual similarity can't confirm identity. Compare markings, collar and microchip, and meet in a safe public place or at a shelter before handing over an animal.
       </Notice>
+      {m.evidence.reviewRequired ? <Notice tone="warning">The listing photo may show more than one animal. Check which animal the suggestion refers to before confirming.</Notice> : null}
 
       {canReview ? (
         <>
@@ -101,5 +105,5 @@ export default function MatchDetail() {
 const local = StyleSheet.create({
   pair: { flexDirection: 'row', gap: 12 },
   side: { flex: 1, gap: 6, alignItems: 'center' },
-  photo: { width: '100%' },
+  photo: { width: '100%', aspectRatio: 1, borderRadius: 14 },
 });

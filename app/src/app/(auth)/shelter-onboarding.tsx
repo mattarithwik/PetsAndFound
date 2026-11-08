@@ -130,7 +130,7 @@ export default function ShelterOnboarding() {
       ) : null}
       {path === 'claim' ? (
         <>
-          <Muted>Find your shelter in the public directory (OpenStreetMap and RescueGroups), then send evidence for review.</Muted>
+          <Muted>Find your shelter in the public directory (OpenStreetMap and Shelterluv), then send evidence for review.</Muted>
           <LocationPicker label="Search near" value={orgPlace ?? place} onChange={setOrgPlace} />
           <Button label="Find directory listings" variant="outline" icon="search" onPress={findListings} loading={busy === 'search'} />
           {nearby?.length === 0 ? <Empty title="No unclaimed listings nearby" body="Register your organization instead." /> : null}

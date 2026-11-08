@@ -35,7 +35,7 @@ flowchart LR
 | AI assistant | NVIDIA Nemotron API |
 | Image matching | Python, FastAPI, PyTorch, DINOv2 Base, SQLite |
 | Photo storage | Cloudinary |
-| External information | RescueGroups, Bluesky, Dallas Open Data, OpenStreetMap/Photon, NOAA/NWS, FEMA |
+| External information | Shelterluv public listings, Bluesky, Dallas Open Data, OpenStreetMap/Photon, NOAA/NWS, FEMA |
 
 External APIs and model features require their corresponding credentials and services. The UI can be previewed separately, but end-to-end reporting and matching require the backend components.
 
@@ -91,7 +91,7 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:3000/v1/database/pawsafe/c
 $env:SPACETIME_SERVICE_TOKEN = $service.token
 ```
 
-Set `SPACETIME_SERVICE_TOKEN` in the API and worker environments. Give both services the same strong `INTERNAL_SERVICE_SECRET` as vision. Configure NVIDIA for chat, Cloudinary for photo uploads and RescueGroups for its directory and animal feed. Set `PROVIDER_USER_AGENT` to an application name and monitored contact for public APIs.
+Set `SPACETIME_SERVICE_TOKEN` in the API and worker environments. Give both services the same strong `INTERNAL_SERVICE_SECRET` as vision. Configure NVIDIA for chat and Cloudinary for photo uploads. The Shelterluv public feed starts with Dallas Pets Alive (group 3451); set `SHELTERLUV_GROUPS` to a JSON array of additional group IDs, names, cities, addresses and coordinates to search other shelters. This feed contains published adoptable listings only. It does not expose private intakes or a nationwide location search. Set `PROVIDER_USER_AGENT` to an application name and monitored contact for public APIs.
 
 Build the vision image and mount a named volume. The first inference downloads the pinned model and persists it in that volume. For offline hosting, point `DINO_MODEL_DIR` at a mounted copy of the model.
 
@@ -141,9 +141,9 @@ Send the SpacetimeDB user token as `Authorization: Bearer <token>` on the Node A
 | `POST /v1/simulations/<id>/choices` | `{choiceId,revision}` from the current scene. |
 | `POST /v1/simulations/<id>/feedback` | `{}` for a completed run. Nemotron explains the predefined outcomes. |
 
-### Matching and source permissions
+### Matching and source configuration
 
-Public posts and shelter listings retain source links. External image processing requires both an approved rights holder in `EXTERNAL_IMAGE_RIGHTSHOLDERS` (for example `rescuegroups:123`) and an exact HTTPS CDN hostname in `EXTERNAL_IMAGE_HOSTS`. New source matches and animal identities require human review. The worker records possible matches by default. Set `MATCH_NOTIFY_THRESHOLD` after evaluating labeled photo pairs to enable score-triggered owner notifications.
+Public posts and shelter listings retain source links. Set `SHELTERLUV_IMAGE_MATCHING=true` and include `new-s3.shelterluv.com` in `EXTERNAL_IMAGE_HOSTS` to compare photos from configured Shelterluv public feeds. Photos with an unknown animal count can produce proposals marked for review; photos known to contain multiple animals are excluded. Other external sources require a configured publisher in `EXTERNAL_IMAGE_RIGHTSHOLDERS` and an exact HTTPS image hostname in `EXTERNAL_IMAGE_HOSTS`. New source matches and animal identities require human review. The worker records possible matches by default. Set `MATCH_NOTIFY_THRESHOLD` after evaluating labeled photo pairs to enable score-triggered owner notifications.
 
 ### Verification
 

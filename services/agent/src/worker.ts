@@ -11,13 +11,17 @@ export async function refreshSources(store: Store) {
       "service_external",
     );
   for (const row of imports) {
+    if (String(row.source) === "rescuegroups") {
+      await store.write("remove_external_report", { id: row.id });
+      continue;
+    }
     if (row.processingAllowed && !providers.eligibleExternalPhotos(row).length)
       await store.write("revoke_external_processing", { id: row.id });
     if (row.source === "bluesky" && (await providers.checkBlueskyRecord(row.sourceRecordId)) === "removed")
       await store.write("remove_external_report", { id: row.id });
     if (
-      row.source === "rescuegroups" &&
-      (await providers.checkRescueGroupsRecord(row.sourceRecordId)) === "removed"
+      row.source === "shelterluv" &&
+      (await providers.checkShelterluvRecord(row.sourceRecordId)) === "removed"
     )
       await store.write("inactive_external_listing", { id: row.id });
   }

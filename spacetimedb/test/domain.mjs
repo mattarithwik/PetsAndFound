@@ -75,7 +75,7 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
     ...venue,
     id: "rg-org-22",
     sourceIds: ["rg-org-22"],
-    directorySources: ["https://rescuegroups.org/22"],
+    directorySources: ["https://new.shelterluv.com/embed/3451"],
   };
   await service.write("upsert_directory_shelter", rg);
   await service.write("upsert_directory_shelter", {
@@ -135,10 +135,25 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   assert.deepEqual(purge.photoUrls, imported.photoUrls);
   await service.write("complete_matching_job", { id: purge.id, version: purge.version });
   assert.ok(!(await service.read("service_jobs")).some((j) => j.purgeExternalId === imported.id));
+  const unreviewed = {
+    ...imported,
+    id: "domain-shelterluv-unreviewed",
+    source: "shelterluv",
+    sourceRecordId: "3451:123",
+    reportType: "shelter_listing",
+  };
+  await service.write("upsert_external_report", unreviewed);
+  const unreviewedProposal = { ...proposal, candidateId: unreviewed.id, notify: false };
+  await assert.rejects(() => service.write("propose_match", unreviewedProposal));
+  await service.write("propose_match", {
+    ...unreviewedProposal,
+    evidence: { model: "test", reviewRequired: true },
+  });
+  assert.ok((await ownerDb.read("matches")).some((m) => m.candidateId === unreviewed.id));
   const listing = {
     ...imported,
     id: "domain-rg",
-    source: "rescuegroups",
+    source: "shelterluv",
     sourceRecordId: "1234",
     ingestedAt: "2020-01-01T00:00:00Z",
   };

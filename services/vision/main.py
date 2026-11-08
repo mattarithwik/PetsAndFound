@@ -131,7 +131,8 @@ def create_app(index_path=None, encoder=None, secret=None):
     def search(request: Search):
         candidates = [lookup(photo_id) for photo_id in dict.fromkeys(request.candidatePhotoIds)]
         review_ids = [p.photo_id for p in candidates if p.animal_count != 1]
-        eligible = [p for p in candidates if p.animal_count == 1]
+        eligible = [p for p in candidates if p.animal_count == 1 or
+                    (request.includeUnreviewed and p.animal_count is None)]
         pet_ids = None if request.references is None else [r.petId for r in request.references]
         views = app.state.store.references(pet_ids) if eligible else []
         return {"model": MODEL, "modelRevision": REVISION, "reviewPhotoIds": review_ids,
