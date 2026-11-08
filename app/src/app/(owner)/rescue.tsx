@@ -1,21 +1,42 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalCard, MatchCard, NotificationBell, ReportCard, ShelterCard, SummaryCard } from '@/components/cards';
 import { PinMap } from '@/components/pin-map';
-import { Button, Empty, ErrorNote, Hero, Loading, Muted, Notice, Screen, SectionTitle, SourceTag, colors } from '@/components/ui';
+import { LocationPicker } from '@/components/location-picker';
+import {
+  Button,
+  Chips,
+  Empty,
+  ErrorNote,
+  ListRow,
+  Loading,
+  Muted,
+  Notice,
+  Screen,
+  SectionTitle,
+  SourceTag,
+  colors,
+  type IconName,
+} from '@/components/ui';
 import { agent, db } from '@/lib/api';
 import { useLive } from '@/lib/hooks';
 import { distanceKm } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
-import type { ExternalReport, Match, NearbyShelter, Pet, Report, ReportSummary, Sourced } from '@/lib/types';
+import type { ExternalReport, Match, NearbyShelter, Pet, Report, ReportSummary, Sourced, Species } from '@/lib/types';
 
 export default function Rescue() {
   const { token, profile, online } = useSession();
-  const { place, locate, locating, error: placeError } = usePlace();
+  const { place, setPlace } = usePlace();
   const [discover, setDiscover] = useState(false);
+  const [areaOpen, setAreaOpen] = useState(false);
+  const [section, setSection] = useState<'reports' | 'nearby' | 'shelters'>('reports');
+  const [history, setHistory] = useState(false);
+  const [species, setSpecies] = useState<Species>('dog');
 
   const mine = useLive(
     async () => {
@@ -26,8 +47,9 @@ export default function Rescue() {
       ]);
       return { reports, matches, pets };
     },
-    'mine',
+    `mine:${profile?.id}`,
     6000,
+    ['my_reports', 'my_matches', 'my_pets'],
   );
 
   const nearby = useLive(
@@ -41,11 +63,12 @@ export default function Rescue() {
     },
     `nearby:${place?.latitude},${place?.longitude}`,
     15000,
+    ['report_summaries'],
   );
 
   const shelters = useLive(
     async () =>
-      place
+      place && section === 'shelters'
         ? agent.post<Sourced<NearbyShelter>>(token!, '/v1/ingestion/shelters/sync', {
             latitude: place.latitude,
             longitude: place.longitude,
@@ -53,7 +76,7 @@ export default function Rescue() {
             limit: 8,
           })
         : undefined,
-    `shelters:${place?.latitude},${place?.longitude}`,
+    `shelters:${section}:${place?.latitude},${place?.longitude}`,
   );
 
   const reports = mine.data?.reports ?? [];
@@ -65,28 +88,32 @@ export default function Rescue() {
     .sort((a, b) => b.score - a.score);
   const others = (nearby.data ?? []).filter((r) => !ownIds.has(r.summary.id));
   const failedSources = shelters.data?.sources.filter((s) => s.status !== 'ok') ?? [];
-  const species = mine.data?.pets[0]?.species ?? 'dog';
 
-  const sightings = useLive(
-    async () => {
-      if (!discover || !place) return undefined;
-      const city = place.city || place.label;
-      const [social, animals] = await Promise.all([
-        city
-          ? agent.post<Sourced<ExternalReport>>(token!, '/v1/ingestion/bluesky/search', { city, species, limit: 6 })
-          : Promise.resolve({ items: [] as ExternalReport[], sources: [] as Sourced<ExternalReport>['sources'] }),
-        agent.post<Sourced<ExternalReport>>(token!, '/v1/ingestion/animals/search', {
-          latitude: place.latitude,
-          longitude: place.longitude,
-          radiusKm: 30,
-          species,
-          limit: 8,
-        }),
-      ]);
-      return { social, animals };
-    },
-    `sightings:${discover}:${place?.latitude},${place?.longitude}:${species}`,
-  );
+  const sightings = useLive(async () => {
+    if (!discover || !place || section !== 'nearby') return undefined;
+    const city = place.city;
+    const [social, animals] = await Promise.allSettled([
+      city
+        ? agent.post<Sourced<ExternalReport>>(token!, '/v1/ingestion/bluesky/search', { city, species, limit: 6 })
+        : Promise.resolve({
+            items: [] as ExternalReport[],
+            sources: [{ source: 'Bluesky (city required)', status: 'unavailable' as const }],
+          }),
+      agent.post<Sourced<ExternalReport>>(token!, '/v1/ingestion/animals/search', {
+        latitude: place.latitude,
+        longitude: place.longitude,
+        radiusKm: 30,
+        species,
+        limit: 8,
+      }),
+    ]);
+    const groups = [social, animals].map((result, index): Sourced<ExternalReport> =>
+      result.status === 'fulfilled'
+        ? result.value
+        : { items: [], sources: [{ source: index === 0 ? 'Bluesky' : 'Shelter listings', status: 'unavailable' }] },
+    );
+    return { items: groups.flatMap((group) => group.items), sources: groups.flatMap((group) => group.sources) };
+  }, `sightings:${section}:${discover}:${place?.latitude},${place?.longitude}:${species}`);
 
   const publicPins = others.slice(0, 12).map((r) => ({
     id: r.summary.id,
@@ -95,67 +122,159 @@ export default function Rescue() {
     title: `${r.summary.species} ${r.summary.type}`,
     tone: r.summary.type === 'lost' ? ('urgent' as const) : ('case' as const),
   }));
-  const sightingFails = [
-    ...(sightings.data?.social.sources.filter((s) => s.status !== 'ok') ?? []),
-    ...(sightings.data?.animals.sources.filter((s) => s.status !== 'ok') ?? []),
-  ];
+  const sightingFails = sightings.data?.sources.filter((source) => source.status !== 'ok') ?? [];
 
   return (
     <Screen
       edges={['top']}
       bottomInset={156}
-      onRefresh={() => Promise.all([mine.refresh(), nearby.refresh(), shelters.refresh(), discover ? sightings.refresh() : Promise.resolve()])}>
-      <Hero title="We're here to help. ♡" subtitle={profile ? `Hi ${profile.name.split(' ')[0]}` : undefined} right={<NotificationBell />} />
-      {!online ? <Notice tone="warning" title="Offline">Showing the last data we loaded. Changes will sync when you reconnect.</Notice> : null}
-
-      <ActionCard title="Lost a pet" detail="Tell us what happened and we'll help bring them home." icon="🐶" onPress={() => router.push('/report/lost')} />
-      <ActionCard title="Found a pet" detail="Share where you found them to help reunite them with their family." icon="🐾" onPress={() => router.push('/report/found')} />
-      <ActionCard
-        title="Need help right now?"
-        detail="Ask Pawtricia for guidance with an injured or endangered animal."
-        icon="🚨"
-        emphasis
-        onPress={() => router.push({ pathname: '/chat', params: { prompt: 'I found an injured animal and need help right now.' } })}
+      onRefresh={() =>
+        Promise.all([mine.refresh(), nearby.refresh(), shelters.refresh(), discover ? sightings.refresh() : Promise.resolve()])
+      }
+    >
+      <View style={local.hero}>
+        <View style={local.headline}>
+          <Text style={local.greeting}>{profile ? `Hello, ${profile.name.split(' ')[0]}` : 'Welcome'}</Text>
+          <Text accessibilityRole="header" style={local.title}>
+            Rescue center
+          </Text>
+          <Text style={local.heroDetail}>Report a lost or found pet and follow their search.</Text>
+        </View>
+        <Image source={require('@/assets/logo.png')} contentFit="contain" style={local.heroArt} />
+        <View style={local.bell}>
+          <NotificationBell />
+        </View>
+      </View>
+      {!online ? (
+        <Notice tone="warning" title="Offline">
+          Reconnect to publish a report or check for updates.
+        </Notice>
+      ) : null}
+      <View style={local.actions}>
+        <ActionCard title="I lost a pet" detail="Start a search" icon="search" onPress={() => router.push('/report/lost')} />
+        <ActionCard
+          title="I found a pet"
+          detail="Report a sighting"
+          icon="paw-outline"
+          onPress={() => router.push('/report/found')}
+        />
+      </View>
+      <ListRow
+        icon="medkit-outline"
+        title="Injured animal?"
+        detail="Record their condition for shelter staff."
+        onPress={() => router.push({ pathname: '/report/found', params: { condition: 'injured' } })}
+      />
+      <Chips
+        value={section}
+        onChange={setSection}
+        options={[
+          { value: 'reports', label: 'My reports' },
+          { value: 'nearby', label: 'Nearby cases' },
+          { value: 'shelters', label: 'Shelters' },
+        ]}
       />
 
-      <SectionTitle action={<SourceTag kind="live" />}>Possible matches</SectionTitle>
-      {mine.loading && !mine.data ? <Loading /> : null}
-      <ErrorNote error={mine.error} onRetry={mine.refresh} />
-      {mine.data && !matches.length ? (
-        <Empty icon="images-outline" title="No possible matches yet" body="When the image matcher finds a similar animal, it appears here for you to review." />
-      ) : null}
-      {matches.slice(0, 5).map((m) => (
-        <MatchCard key={m.id} match={m} />
-      ))}
-
-      <SectionTitle>Your reports</SectionTitle>
-      {mine.data && !open.length ? <Muted>You have no open reports.</Muted> : null}
-      {open.map((r) => (
-        <ReportCard key={r.id} report={r} petName={petName(r)} />
-      ))}
-      {reports.length > open.length ? <Muted>{reports.length - open.length} closed or reunited report(s) in your history.</Muted> : null}
-
-      <SectionTitle>Nearby cases</SectionTitle>
-      {!place ? (
+      {section === 'reports' ? (
         <>
-          <Muted>Share your location to see lost and found reports within 50 km.</Muted>
-          <Button label="Use my location" icon="locate" variant="outline" onPress={locate} loading={locating} />
-          <ErrorNote error={placeError} />
+          <SectionTitle>Possible matches</SectionTitle>
+          {mine.loading && !mine.data ? <Loading /> : null}
+          <ErrorNote error={mine.error} onRetry={mine.refresh} />
+          {mine.data && !matches.length ? (
+            <Empty
+              icon="images-outline"
+              title="No possible matches yet"
+              body="When the image matcher finds a similar animal, it appears here for you to review."
+            />
+          ) : null}
+          {matches.map((m) => (
+            <MatchCard key={m.id} match={m} />
+          ))}
+
+          <SectionTitle>Your reports</SectionTitle>
+          {mine.data && !open.length ? <Muted>You have no open reports.</Muted> : null}
+          {open.map((r) => (
+            <ReportCard key={r.id} report={r} petName={petName(r)} />
+          ))}
+          {reports.length > open.length ? (
+            <Button
+              compact
+              variant="ghost"
+              label={history ? 'Hide report history' : `View report history (${reports.length - open.length})`}
+              onPress={() => setHistory(!history)}
+            />
+          ) : null}
+          {history &&
+            reports.filter((r) => r.status !== 'open').map((r) => <ReportCard key={r.id} report={r} petName={petName(r)} />)}
         </>
-      ) : (
+      ) : null}
+
+      {section !== 'reports' ? (
         <>
-          <Muted>Near {place.label}. Public reports show only an approximate area (about 10 km), never an exact pin or private contact.</Muted>
+          <SectionTitle
+            action={
+              place ? (
+                <Button
+                  label={areaOpen ? 'Done' : 'Change area'}
+                  compact
+                  variant="ghost"
+                  onPress={() => setAreaOpen(!areaOpen)}
+                />
+              ) : undefined
+            }
+          >
+            {section === 'nearby' ? 'Nearby cases' : 'Nearby shelters'}
+          </SectionTitle>
+          {!place || areaOpen ? (
+            <LocationPicker
+              label="Search area"
+              value={place}
+              onChange={(next) => {
+                setPlace(next);
+                setAreaOpen(false);
+              }}
+            />
+          ) : (
+            <Muted>Near {place.label}</Muted>
+          )}
+        </>
+      ) : null}
+      {place && section === 'nearby' ? (
+        <>
+          <Muted>Open reports within 50 km. Pins show approximate locations.</Muted>
           <ErrorNote error={nearby.error} onRetry={nearby.refresh} />
-          {publicPins.length ? <PinMap center={place} pins={publicPins} /> : null}
+          {nearby.loading ? <Loading label="Loading nearby cases…" /> : null}
+          {publicPins.length ? (
+            <PinMap center={place} pins={publicPins} onPress={(pin) => router.push(`/reports/${pin.id}`)} />
+          ) : null}
           {nearby.data && !others.length ? <Empty title="No open reports nearby" /> : null}
-          {others.slice(0, 6).map((r) => (
-            <SummaryCard key={r.summary.id} summary={r.summary} distance={r.distance} />
+          {others.map((r) => (
+            <SummaryCard
+              key={r.summary.id}
+              summary={r.summary}
+              distance={r.distance}
+              onPress={() => router.push(`/reports/${r.summary.id}`)}
+            />
           ))}
 
           <SectionTitle action={<SourceTag kind="external" />}>Public sightings</SectionTitle>
-          <Muted>Search Bluesky posts and published shelter listings. Each result keeps its original source link; PawSafe does not invent matches from these.</Muted>
+          <Chips
+            label="Animal to search for"
+            value={species}
+            onChange={setSpecies}
+            options={[
+              { value: 'dog', label: 'Dog' },
+              { value: 'cat', label: 'Cat' },
+              { value: 'other', label: 'Other' },
+            ]}
+          />
           {!discover ? (
-            <Button label="Search public posts and shelter listings" icon="search" variant="outline" onPress={() => setDiscover(true)} />
+            <Button
+              label="Search public posts and shelter listings"
+              icon="search"
+              variant="outline"
+              onPress={() => setDiscover(true)}
+            />
           ) : (
             <>
               {sightings.loading && !sightings.data ? <Loading label="Searching public sources…" /> : null}
@@ -163,24 +282,22 @@ export default function Rescue() {
               {sightingFails.length ? (
                 <Notice tone="warning">{`Some sources didn't respond (${sightingFails.map((s) => s.source).join(', ')}). Showing whatever did.`}</Notice>
               ) : null}
-              {sightings.data && !sightings.data.social.items.length && !sightings.data.animals.items.length ? (
-                <Empty icon="globe-outline" title="No public listings found" body="This is a source result, not a guarantee that no animals are out there." />
+              {sightings.data?.sources.some((s) => s.status === 'ok') && !sightings.data.items.length ? (
+                <Empty icon="globe-outline" title="No listings in the available sources" />
               ) : null}
-              {sightings.data?.social.items.map((item) => (
+              {sightings.data?.items.map((item) => (
                 <ExternalCard key={item.id} item={item} />
               ))}
-              {sightings.data?.animals.items.map((item) => (
-                <ExternalCard key={item.id} item={item} />
-              ))}
-              {sightings.data ? <Button label="Search again" icon="refresh" variant="ghost" compact onPress={sightings.refresh} /> : null}
+              {sightings.data ? (
+                <Button label="Search again" icon="refresh" variant="ghost" compact onPress={sightings.refresh} />
+              ) : null}
             </>
           )}
         </>
-      )}
+      ) : null}
 
-      {place ? (
+      {place && section === 'shelters' ? (
         <>
-          <SectionTitle>Nearby shelters</SectionTitle>
           {shelters.loading && !shelters.data ? <Loading label="Searching shelter directories…" /> : null}
           <ErrorNote error={shelters.error} onRetry={shelters.refresh} />
           {failedSources.length ? (
@@ -189,11 +306,21 @@ export default function Rescue() {
           {shelters.data?.items.length ? (
             <PinMap
               center={place}
-              pins={shelters.data.items.map((s) => ({ id: s.id, latitude: s.latitude, longitude: s.longitude, title: s.name, tone: 'shelter' as const }))}
+              pins={shelters.data.items.map((s) => ({
+                id: s.id,
+                latitude: s.latitude,
+                longitude: s.longitude,
+                title: s.name,
+                tone: 'shelter' as const,
+              }))}
             />
           ) : null}
           {shelters.data && !shelters.data.items.length ? (
-            <Empty icon="business-outline" title="No shelters found within 30 km" body="This means none were found in the connected directories, not that none exist." />
+            <Empty
+              icon="business-outline"
+              title="No shelters found within 30 km"
+              body="This means none were found in the connected directories, not that none exist."
+            />
           ) : null}
           {shelters.data?.items.map((s) => (
             <ShelterCard key={s.id} shelter={s} />
@@ -204,11 +331,14 @@ export default function Rescue() {
   );
 }
 
-function ActionCard({ title, detail, icon, emphasis, onPress }: { title: string; detail: string; icon: string; emphasis?: boolean; onPress: () => void }) {
+function ActionCard({ title, detail, icon, onPress }: { title: string; detail: string; icon: IconName; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [local.action, emphasis && local.emphasis, pressed && { opacity: 0.8 }]}>
-      <Text style={local.emoji}>{icon}</Text>
-      <View style={{ flex: 1 }}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [local.action, pressed && { opacity: 0.8 }]}>
+      <View style={local.actionIcons}>
+        <Ionicons name={icon} color={colors.navy} size={24} />
+        <Ionicons name="arrow-forward" size={17} color={colors.navy} />
+      </View>
+      <View>
         <Text style={local.actionTitle}>{title}</Text>
         <Text style={local.actionDetail}>{detail}</Text>
       </View>
@@ -217,21 +347,41 @@ function ActionCard({ title, detail, icon, emphasis, onPress }: { title: string;
 }
 
 const local = StyleSheet.create({
-  action: {
+  hero: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#0064BC',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    overflow: 'hidden',
+    borderRadius: 24,
+    padding: 23,
+    paddingVertical: 30,
+    minHeight: 190,
+    backgroundColor: '#14598E',
   },
-  emphasis: { borderWidth: 2, borderColor: colors.sky },
-  emoji: { fontSize: 30 },
+  headline: { flex: 1, zIndex: 1, gap: 7 },
+  greeting: { color: '#D5EBFF', fontWeight: '700', fontSize: 14 },
+  title: {
+    color: 'white',
+    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', web: 'Georgia, serif' }),
+    fontWeight: '700',
+    fontSize: 38,
+    lineHeight: 44,
+  },
+  heroDetail: { color: '#E8F5FF', fontSize: 14, maxWidth: 330, lineHeight: 20 },
+  heroArt: { width: '27%', maxWidth: 150, height: 112, marginTop: 24, marginLeft: 7 },
+  bell: { position: 'absolute', top: 8, right: 8 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  action: {
+    flex: 1,
+    minWidth: 130,
+    gap: 15,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+  },
+  actionIcons: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actionTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
   actionDetail: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
 });

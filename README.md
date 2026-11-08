@@ -35,7 +35,7 @@ flowchart LR
 | AI assistant | NVIDIA Nemotron API |
 | Image matching | Python, FastAPI, PyTorch, DINOv2 Base, SQLite |
 | Photo storage | Cloudinary |
-| External information | Shelterluv public listings, Bluesky, Dallas Open Data, OpenStreetMap/Photon, NOAA/NWS, FEMA |
+| External information | RescueGroups, Bluesky, Dallas Open Data, OpenStreetMap/Photon, NOAA/NWS, FEMA |
 
 External APIs and model features require their corresponding credentials and services. The UI can be previewed separately, but end-to-end reporting and matching require the backend components.
 
@@ -60,6 +60,9 @@ npm run app:web
 ```
 
 Expo prints the local web URL (normally `http://localhost:8081`). For a device or simulator, use `npm run app` instead. The client defaults to SpacetimeDB at port 3000 and the agent API at port 8080 on the development host; `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
+
+Select **Try a practice drill** on the welcome screen or open `/practice` to play without signing in. The device keeps the six most recent local drills. The owner's Simulation tab saves connected runs to the account and offers a Nemotron debrief on completion.
+
 
 For the complete local stack, use Node.js 24, the SpacetimeDB 2.14.1 CLI, and either Docker or a Python environment with the dependencies in `services/vision/requirements.txt`. Run from the repository root.
 
@@ -91,7 +94,7 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:3000/v1/database/pawsafe/c
 $env:SPACETIME_SERVICE_TOKEN = $service.token
 ```
 
-Set `SPACETIME_SERVICE_TOKEN` in the API and worker environments. Give both services the same strong `INTERNAL_SERVICE_SECRET` as vision. Configure NVIDIA for chat and Cloudinary for photo uploads. The Shelterluv public feed starts with Dallas Pets Alive (group 3451); set `SHELTERLUV_GROUPS` to a JSON array of additional group IDs, names, cities, addresses and coordinates to search other shelters. This feed contains published adoptable listings only. It does not expose private intakes or a nationwide location search. Set `PROVIDER_USER_AGENT` to an application name and monitored contact for public APIs.
+Set `SPACETIME_SERVICE_TOKEN` in the API and worker environments. Give both services the same strong `INTERNAL_SERVICE_SECRET` as vision. Configure NVIDIA for chat, Cloudinary for photo uploads and RescueGroups for its directory and animal feed. Set `PROVIDER_USER_AGENT` to an application name and monitored contact for public APIs.
 
 Build the vision image and mount a named volume. The first inference downloads the pinned model and persists it in that volume. For offline hosting, point `DINO_MODEL_DIR` at a mounted copy of the model.
 
@@ -115,7 +118,7 @@ The Expo app lives in `app/`. From the repository root, run `npm run app` (or `n
 
 ## Client integration
 
-Use the SpacetimeDB SDK for registration, ordinary writes and subscriptions. Generate client bindings from the published module with `spacetime generate --lang typescript --out-dir <client-bindings> --module-path spacetimedb`. Each reducer's `payload` argument is a JSON-encoded object. For HTTP calls, POST an array containing that one string to `/v1/database/<database>/call/<reducer>`. The `api_read` procedure takes two strings (resource and key) and returns JSON text.
+The Expo client calls SpacetimeDB reducers and read procedures over HTTP. Each reducer takes a JSON-encoded payload as its sole argument. The `api_read` procedure takes a resource and a key and returns JSON text. A single authenticated WebSocket subscribes to the user's views and public directory updates. Screens reload their authorized reads on changes, reconnect and foreground, with polling as a fallback.
 
 1. Call `register_user` with `{name,generalLocation}`, then `register_pet` with a client-generated ID, name and species.
 2. Call `POST /v1/uploads/sign` with `{}`. Send the returned fields and image file as multipart form data to `uploadUrl`. On successful upload, call `attach_pet_photo` with `{id,petId,storageKey,angle,animalCount}`. Use the returned photo ID. Supply an animal count only when someone has checked the image. An authorized client can obtain a short-lived delivery URL from `GET /v1/photos/<photoId>/url`.
@@ -135,15 +138,15 @@ Send the SpacetimeDB user token as `Authorization: Bearer <token>` on the Node A
 | `POST /v1/ingestion/animals/search` | Same location parameters, with optional species. |
 | `GET /v1/weather/alerts` | `latitude` and `longitude` query parameters. Official NWS records include timestamps. |
 | `GET /v1/disasters/history` | Two-letter `state` and optional `incidentType` and ISO `since`. |
-| `GET /v1/scenarios` | Available educational scenarios. |
-| `POST /v1/simulations` | `{id,scenarioId}` with a client-generated UUID and `tornado`, `flood`, `wildfire` or `heat`. |
-| `GET /v1/simulations/<id>` | Current scene, choices, revision and scores. |
+| `GET /v1/scenarios` | Six fictional drills with deterministic, branching decisions. |
+| `POST /v1/simulations` | Use `{id,scenarioId,animal?}` with a client-generated UUID. Scenarios are `tornado`, `wildfire`, `winter_storm`, `earthquake`, `flood` and `heat`. Companions are `dog` (default), `cat`, `snake`, `bird` and `rabbit`. |
+| `GET /v1/simulations/<id>` | Current scene, companion, choices, revision, decision count and scores. New runs have three decisions. Earlier two-decision runs retain their scores. |
 | `POST /v1/simulations/<id>/choices` | `{choiceId,revision}` from the current scene. |
 | `POST /v1/simulations/<id>/feedback` | `{}` for a completed run. Nemotron explains the predefined outcomes. |
 
-### Matching and source configuration
+### Matching and source permissions
 
-Public posts and shelter listings retain source links. Set `SHELTERLUV_IMAGE_MATCHING=true` and include `new-s3.shelterluv.com` in `EXTERNAL_IMAGE_HOSTS` to compare photos from configured Shelterluv public feeds. Photos with an unknown animal count can produce proposals marked for review; photos known to contain multiple animals are excluded. Other external sources require a configured publisher in `EXTERNAL_IMAGE_RIGHTSHOLDERS` and an exact HTTPS image hostname in `EXTERNAL_IMAGE_HOSTS`. New source matches and animal identities require human review. The worker records possible matches by default. Set `MATCH_NOTIFY_THRESHOLD` after evaluating labeled photo pairs to enable score-triggered owner notifications.
+Public posts and shelter listings retain source links. External image processing requires both an approved rights holder in `EXTERNAL_IMAGE_RIGHTSHOLDERS` (for example `rescuegroups:123`) and an exact HTTPS CDN hostname in `EXTERNAL_IMAGE_HOSTS`. New source matches and animal identities require human review. The worker records possible matches by default. Set `MATCH_NOTIFY_THRESHOLD` after evaluating labeled photo pairs to enable score-triggered owner notifications.
 
 ### Verification
 

@@ -157,6 +157,14 @@ const guidance = {
     url: "https://www.usfa.fema.gov/wui/outreach/wildfire-evacuation.html",
     tip: "Practice evacuating with your pets and keep supplies ready to take. Follow evacuation instructions from local officials.",
   },
+  winter_storm: {
+    url: "https://www.weather.gov/safety/winter-before",
+    tip: "Arrange warm shelter for your pets and stock food and water before snow or ice makes roads unsafe.",
+  },
+  earthquake: {
+    url: "https://www.cdc.gov/earthquakes/safety/stay-safe-during-an-earthquake.html",
+    tip: "Practice dropping, taking cover and holding on. Keep your pet's transport equipment accessible for use after the shaking stops.",
+  },
   heat: {
     url: "https://www.weather.gov/wrn/summer-article-keep-your-pets-cool",
     tip: "Arrange a cool place and fresh drinking water for your pet. Take your pet with you whenever you leave a parked vehicle.",

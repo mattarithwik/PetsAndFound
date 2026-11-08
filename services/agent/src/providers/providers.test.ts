@@ -3,7 +3,7 @@ import test from "node:test";
 import type { TestContext } from "node:test";
 import {
   checkBlueskyRecord,
-  checkShelterluvRecord,
+  checkRescueGroupsRecord,
   findNearbyShelters,
   getDisasterHistory,
   getWeatherAlerts,
@@ -111,8 +111,7 @@ test("removal requires an explicit result for the requested public post", async 
   assert.equal(await checkBlueskyRecord(uri), "removed");
 });
 test("processing needs publisher permission and an exact HTTPS host", (t) => {
-  env(t, "SHELTERLUV_IMAGE_MATCHING", "false");
-  env(t, "EXTERNAL_IMAGE_RIGHTSHOLDERS", "shelterluv:12");
+  env(t, "EXTERNAL_IMAGE_RIGHTSHOLDERS", "rescuegroups:12");
   env(t, "EXTERNAL_IMAGE_HOSTS", "images.example.org");
   const urls = [
     "https://images.example.org/photo.jpg",
@@ -121,17 +120,17 @@ test("processing needs publisher permission and an exact HTTPS host", (t) => {
     "https://images.example.org:444/c",
   ];
   assert.equal(
-    permittedPhotos("shelterluv:123", urls).processingAllowed,
+    permittedPhotos("rescuegroups:123", urls).processingAllowed,
     false,
   );
-  assert.deepEqual(permittedPhotos("shelterluv:12", urls), {
+  assert.deepEqual(permittedPhotos("rescuegroups:12", urls), {
     photoUrls: [urls[0]],
     processingAllowed: true,
   });
   assert.deepEqual(
     eligibleExternalPhotos({
       source: "bluesky",
-      processingPrincipal: "shelterluv:12",
+      processingPrincipal: "rescuegroups:12",
       photoUrls: urls,
       processingAllowed: true,
     }),
@@ -139,78 +138,121 @@ test("processing needs publisher permission and an exact HTTPS host", (t) => {
   );
   assert.deepEqual(
     eligibleExternalPhotos({
-      source: "shelterluv",
-      processingPrincipal: "shelterluv:12",
+      source: "rescuegroups",
+      processingPrincipal: "rescuegroups:12",
       photoUrls: urls,
       processingAllowed: true,
     }),
     [urls[0]],
   );
 });
-test("configured Shelterluv public photos are eligible without enabling other publishers", (t) => {
-  env(t, "SHELTERLUV_IMAGE_MATCHING", "true");
-  env(t, "EXTERNAL_IMAGE_RIGHTSHOLDERS", "");
-  env(t, "EXTERNAL_IMAGE_HOSTS", "new-s3.shelterluv.com");
-  const url = "https://new-s3.shelterluv.com/profile-pictures/photo.jpg";
-  assert.deepEqual(permittedPhotos("shelterluv:3451", [url]), {
-    photoUrls: [url], processingAllowed: true,
-  });
-  assert.equal(permittedPhotos("bluesky:author", [url]).processingAllowed, false);
-  assert.equal(permittedPhotos("shelterluv:3451", ["https://other.example/photo.jpg"]).processingAllowed, false);
-});
-test("Shelterluv public feed is scoped to a Dallas group and never implies a found sighting", async (t) => {
-  env(t, "SHELTERLUV_GROUPS", JSON.stringify([{
-    id: "3451", name: "Dallas Pets Alive", address: "1 Main St, Dallas, TX, 75201",
-    city: "Dallas, TX", latitude: 32.78, longitude: -96.8,
-  }]));
-  env(t, "EXTERNAL_IMAGE_RIGHTSHOLDERS", "shelterluv:3451");
+test("RescueGroups joins JSON:API included rows by type and id; a listing does not establish a found sighting", async (t) => {
+  env(t, "RESCUEGROUPS_API_KEY", "example-key");
+  env(t, "EXTERNAL_IMAGE_RIGHTSHOLDERS", "rescuegroups:11");
   env(t, "EXTERNAL_IMAGE_HOSTS", "cdn.example.org");
-  intercept(t, (url) => {
-    assert.equal(url.pathname, "/api/v3/available-animals/3451");
-    assert.equal(url.searchParams.get("animalType"), "Dog");
-    return { animals: [{
-      nid: 45, species: "Dog", breed: "Lab", primary_color: "Black",
-      public_url: "https://new.shelterluv.com/embed/animal/DPA-A-45",
-      photos: { 0: { url: "https://cdn.example.org/45.jpg" } },
-    }] };
+  intercept(t, (url, init) => {
+    assert.equal(new Headers(init.headers).get("authorization"), "example-key");
+    assert.equal(url.pathname, "/v5/public/animals/search/available/dogs/");
+    assert.deepEqual(JSON.parse(String(init.body)).data.filterRadius, {
+      lat: 32.78,
+      lon: -96.8,
+      kilometers: 30,
+    });
+    return {
+      data: [
+        {
+          id: "45",
+          attributes: {
+            url: "https://shelter.example.org/pets/45",
+            breedString: "Lab",
+          },
+          relationships: {
+            species: { data: [{ type: "species", id: "1" }] },
+            orgs: { data: [{ type: "orgs", id: "11" }] },
+            pictures: { data: [{ type: "pictures", id: "1" }] },
+          },
+        },
+      ],
+      included: [
+        { type: "species", id: "1", attributes: { singular: "Dog" } },
+        {
+          type: "pictures",
+          id: "1",
+          attributes: { large: { url: "https://cdn.example.org/45.jpg" } },
+        },
+        {
+          type: "orgs",
+          id: "11",
+          attributes: { lat: "32.78", lon: "-96.8", city: "Dallas" },
+        },
+      ],
+    };
   });
-  const result = await searchShelterAnimals({ ...checkPoint, species: "dog" });
-  const [item] = result.items;
-  assert.equal(result.sources[0].source, "shelterluv");
-  assert.equal(item.sourceRecordId, "3451:45");
+  const [item] = (await searchShelterAnimals({ ...checkPoint, species: "dog" }))
+    .items;
   assert.equal(item.reportType, "shelter_listing");
   assert.equal(item.processingAllowed, true);
   assert.equal(item.location?.confidence, "approximate");
   assert.equal(item.observedAt, undefined);
 });
-test("Shelterluv directory uses configured groups and preserves OpenStreetMap on configuration failure", async (t) => {
-  env(t, "SHELTERLUV_GROUPS", JSON.stringify([{
-    id: "42", name: "Shelter One", address: "1 Main St, Dallas, TX, 75201",
-    city: "Dallas, TX", latitude: 32.78, longitude: -96.8,
-  }]));
+test("directory corroborates independent sources, keeps co-located organizations separate, and preserves successes on partial outage", async (t) => {
+  env(t, "RESCUEGROUPS_API_KEY", "example-key");
+  let outage = false;
   intercept(t, (url) => {
-    assert.equal(url.hostname, "photon.komoot.io");
-    return { features: [
-      { geometry: { type: "Point", coordinates: [-96.8, 32.78] }, properties: {
-        osm_type: "N", osm_id: 1, name: "Shelter One", housenumber: "1",
-        street: "Main St", city: "Dallas", state: "TX", postcode: "75201",
-      } },
-      { geometry: { type: "Point", coordinates: [-96.8, 32.78] }, properties: {
-        osm_type: "W", osm_id: 2, name: "Another Rescue",
-      } },
-    ] };
+    if (url.hostname === "photon.komoot.io")
+      return {
+        features: [
+          {
+            geometry: { type: "Point", coordinates: [-96.8, 32.78] },
+            properties: {
+              osm_type: "N",
+              osm_id: 1,
+              name: "Shelter One",
+              housenumber: "1",
+              street: "Main St",
+              city: "Dallas",
+              state: "TX",
+              postcode: "75201",
+            },
+          },
+          {
+            geometry: { type: "Point", coordinates: [-96.8, 32.78] },
+            properties: { osm_type: "W", osm_id: 2, name: "Another Rescue" },
+          },
+        ],
+      };
+    if (outage) return new Response(null, { status: 503 });
+    return {
+      data: [
+        {
+          id: "42",
+          attributes: {
+            name: "Shelter One",
+            lat: "32.78",
+            lon: "-96.8",
+            street: "1 Main St",
+            city: "Dallas",
+            state: "TX",
+            postalcode: "75201",
+          },
+        },
+      ],
+    };
   });
   const merged = await findNearbyShelters(checkPoint);
   assert.equal(merged.items.length, 2);
   const shelter = merged.items.find((s) => s.name === "Shelter One")!;
-  assert.deepEqual(shelter.sourceIds, ["osm-node-1", "shelterluv-org-42"]);
+  assert.deepEqual(shelter.sourceIds, ["osm-node-1", "rg-org-42"]);
   assert.equal(shelter.directoryConfidence, "high");
   assert.equal(shelter.operatorVerified, false);
   assert(!("acceptingAnimals" in shelter));
-  process.env.SHELTERLUV_GROUPS = "invalid json";
+  outage = true;
   const partial = await findNearbyShelters(checkPoint);
   assert.equal(partial.items.length, 2);
-  assert.deepEqual(partial.sources.map((source) => source.status), ["ok", "unavailable"]);
+  assert.deepEqual(
+    partial.sources.map((s) => s.status),
+    ["ok", "unavailable"],
+  );
 });
 test("Dallas rows keep distinct feeds, convert Central wall time, and discard operational and street details", async (t) => {
   intercept(t, (url) => {
@@ -305,20 +347,47 @@ test("historical declarations retain dates and FEMA attribution", async (t) => {
   assert.equal(row.category, "historical");
   assert.equal(row.sourceUrl, "https://www.fema.gov/disaster/1234");
 });
-test("Shelterluv withdrawal checks use the exact configured group feed", async (t) => {
-  env(t, "SHELTERLUV_GROUPS", JSON.stringify([{
-    id: "7777", name: "Test Shelter", address: "", city: "Dallas, TX",
-    latitude: 32.78, longitude: -96.8,
-  }]));
-  let calls = 0;
-  intercept(t, (url) => {
-    calls++;
-    assert.equal(url.pathname, "/api/v3/available-animals/7777");
-    return { animals: [{ nid: 123, species: "Dog" }] };
+test("RescueGroups withdrawal checks require the exact entity and its related status or a documented entity 404", async (t) => {
+  env(t, "RESCUEGROUPS_API_KEY", "example-key");
+  const status = { type: "statuses", id: "2" };
+  const animal = {
+    type: "animals",
+    id: "123",
+    relationships: { statuses: { data: [status] } },
+  };
+  const document = (name: string) => ({
+    data: [animal],
+    included: [{ ...status, attributes: { name } }],
   });
-  assert.equal(await checkShelterluvRecord("../123"), "unavailable");
+  let response: unknown = document("Available");
+  let calls = 0;
+  intercept(t, (url, init) => {
+    calls++;
+    assert.equal(url.pathname, "/v5/public/animals/123");
+    assert.equal(url.searchParams.get("include"), "statuses");
+    assert.equal(new Headers(init.headers).get("authorization"), "example-key");
+    return response;
+  });
+  assert.equal(await checkRescueGroupsRecord("../123"), "unavailable");
   assert.equal(calls, 0);
-  assert.equal(await checkShelterluvRecord("7777:123"), "present");
-  assert.equal(await checkShelterluvRecord("7777:124"), "removed");
-  assert.equal(calls, 1);
+  assert.equal(await checkRescueGroupsRecord("123"), "present");
+  response = document("Adopted");
+  assert.equal(await checkRescueGroupsRecord("123"), "removed");
+  response = { ...document("Adopted"), data: { ...animal, id: "4" } };
+  assert.equal(await checkRescueGroupsRecord("123"), "unavailable");
+  response = {
+    data: animal,
+    included: [
+      { type: "statuses", id: "999", attributes: { name: "Adopted" } },
+    ],
+  };
+  assert.equal(await checkRescueGroupsRecord("123"), "unavailable");
+  response = { data: [] };
+  assert.equal(await checkRescueGroupsRecord("123"), "unavailable");
+  response = new Response(JSON.stringify({ data: {} }), { status: 404 });
+  assert.equal(await checkRescueGroupsRecord("123"), "removed");
+  for (const code of [404, 401, 403, 502, 429]) {
+    response = new Response("upstream unavailable", { status: code });
+    assert.equal(await checkRescueGroupsRecord("123"), "unavailable");
+  }
 });

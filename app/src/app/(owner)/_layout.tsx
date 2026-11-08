@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { View, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatFab } from '@/components/chat-fab';
 import { colors, type IconName } from '@/components/ui';
@@ -16,18 +17,19 @@ function tabIcon(name: IconName) {
 }
 
 export default function OwnerLayout() {
-  const { ready, token, profile } = useSession();
+  const insets = useSafeAreaInsets();
+  const { ready, token, profile, role } = useSession();
   if (!ready) return null;
-  if (!token || !profile) return <Redirect href="/" />;
+  if (!token || !profile || role !== 'owner') return <Redirect href="/" />;
   return (
     <View style={{ flex: 1 }}>
       <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.navy,
-          tabBarInactiveTintColor: colors.sky,
-          tabBarStyle: { borderTopColor: colors.baby, backgroundColor: colors.white },
-          tabBarLabelStyle: { fontWeight: '700' },
+          tabBarInactiveTintColor: colors.muted,
+          tabBarStyle: { height: 62 + insets.bottom, paddingTop: 3, paddingBottom: 5 + insets.bottom, borderTopColor: colors.border, backgroundColor: colors.white },
+          tabBarLabelStyle: { fontSize: 12, lineHeight: 16, fontWeight: '700' },
         }}>
         <Tabs.Screen name="rescue" options={{ title: 'Rescue', tabBarIcon: tabIcon('home-outline') }} />
         <Tabs.Screen name="prepare" options={{ title: 'Prepare', tabBarIcon: tabIcon('shield-checkmark-outline') }} />

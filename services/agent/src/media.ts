@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ApiError, setting, type Actor, type Photo } from "./db.js";
+import { eligibleExternalPhotos } from "./providers/common.js";
 
 const photoLimit = 8 * 1024 * 1024;
 function cloud() {
@@ -51,7 +52,16 @@ export function downloadUrl(key: string) {
     )
   );
 }
+export function externalPhotoId(reportId: string, url: string) {
+  return "ext-" + createHash("sha256").update(reportId + "\0" + url).digest("hex");
+}
 export async function getPhotoUrl(actor: Actor, id: string) {
+  if (/^ext-[a-f0-9]{64}$/.test(id)) {
+    const source = await actor.db.read<({ id: string } & Parameters<typeof eligibleExternalPhotos>[0]) | null>("matched_external_photo", id);
+    const url = source && eligibleExternalPhotos(source).find((photo) => externalPhotoId(source.id, photo) === id);
+    if (!url) throw new ApiError(404, "Source photo is no longer available");
+    return { url, expiresIn: 0 };
+  }
   const photo = await actor.db.read<Photo | null>("photo", id);
   if (!photo) throw new ApiError(404, "Photo not found");
   return { url: downloadUrl(photo.storageKey), expiresIn: 120 };

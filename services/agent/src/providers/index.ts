@@ -3,7 +3,7 @@ export { eligibleExternalPhotos } from "./common.js";
 export {
   searchShelterAnimals,
   findNearbyShelters,
-  checkShelterluvRecord,
+  checkRescueGroupsRecord,
 } from "./shelters.js";
 export { searchDallas } from "./dallas.js";
 export {

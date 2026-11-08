@@ -92,6 +92,16 @@ function relevantMatches(ctx: ReadCtx) {
   return [...new Map(rows.map((m) => [m.id, m])).values()];
 }
 export const my_cases = db.view({ name: "my_cases", public: true }, t.array(cases.rowType), relevantCases);
+export const my_available_cases = db.view(
+  { name: "my_available_cases", public: true },
+  t.array(t.object("AvailableCase", { id: t.string(), priority: t.string() })),
+  (ctx) => {
+    if (![...ctx.db.staff.userId.filter(sender(ctx))].some((r) => isStaff(ctx, r.shelterId))) return [];
+    return Array.from(ctx.db.cases.shelterId.filter(""))
+      .filter((c) => c.status === "open")
+      .map(({ id, priority }) => ({ id, priority }));
+  },
+);
 export const my_matches = db.view(
   { name: "my_matches", public: true },
   t.array(matches.rowType),
@@ -120,7 +130,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
       return Array.from(ctx.db.pets.ownerId.filter(actor));
     case "pet": {
       const r = ctx.db.pets.id.find(key);
-      return r?.ownerId === actor ? r : null;
+      return r?.ownerId === actor ? { ...r, healthNotes: ctx.db.petCareNotes.petId.find(key)?.text ?? "" } : null;
     }
     case "pet_photos":
       return ctx.db.pets.id.find(key)?.ownerId === actor
@@ -163,6 +173,10 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
     }
     case "public_reports":
       return Array.from(ctx.db.reportSummaries.status.filter("open"));
+    case "public_report": {
+      const summary = ctx.db.reportSummaries.id.find(key);
+      return summary?.status === "open" ? summary : null;
+    }
     case "shelters":
       return Array.from(ctx.db.shelters.iter(), shelter);
     case "shelter": {
@@ -227,7 +241,24 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         : Array.from(ctx.db.verifications.applicantId.filter(actor));
     }
     case "matches":
-      return relevantMatches(ctx).map((r) => ({ ...r, evidence: JSON.parse(r.evidence) }));
+      return relevantMatches(ctx).map((r) => {
+        const reportId = r.candidateType === "report" ? r.candidateId : r.lostReportId;
+        const caseRow = ctx.db.cases.id.find(reportId);
+        const contact = caseRow?.shelterId && r.status !== "rejected" ? ctx.db.shelters.id.find(caseRow.shelterId) : null;
+        return {
+          ...r, evidence: JSON.parse(r.evidence),
+          ...(contact?.operatorVerified ? { handlingShelter: { name: contact.name, phone: contact.phone, website: contact.website } } : {}),
+        };
+      });
+    case "matched_external_photo": {
+      const match = relevantMatches(ctx).find((m) =>
+        m.candidateType === "external" && m.status !== "rejected" && JSON.parse(m.evidence).candidatePhotoId === key);
+      if (!match) return null;
+      const source = ctx.db.external.id.find(match.candidateId);
+      if (!source || !["new", "processed"].includes(source.status) || ctx.db.jobs.id.find("purgeExternal:" + source.id)?.pending) return null;
+      const { source: provider, processingPrincipal, processingAllowed, photoUrls } = JSON.parse(source.document);
+      return processingAllowed ? { id: source.id, source: provider, processingPrincipal, processingAllowed, photoUrls } : null;
+    }
     case "notifications":
       return Array.from(ctx.db.notifications.recipientId.filter(actor), (r) => ({
         ...r,

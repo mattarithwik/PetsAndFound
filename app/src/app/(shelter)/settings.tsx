@@ -2,10 +2,12 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
+import { LocationPicker } from '@/components/location-picker';
 import { Badge, Button, Card, Chips, Empty, ErrorNote, Field, Hero, KeyValue, ListRow, Muted, Notice, Row, Screen, SectionTitle, Strong, Toggle } from '@/components/ui';
 import { db } from '@/lib/api';
 import { timeAgo, verificationLabel } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
+import type { Place } from '@/lib/location';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
 import { useShelter, useShelterOps } from '@/lib/shelter';
@@ -38,9 +40,10 @@ export default function Settings() {
             {shelter?.phone ? <KeyValue label="Phone" value={shelter.phone} /> : null}
             {shelter?.website ? <KeyValue label="Website" value={shelter.website} /> : null}
           </Card>
-          <Verification shelterId={active.shelterId} status={active.verification} />
-          {verified && shelter ? <Capacity shelter={shelter} onSaved={ops.refresh} /> : null}
-          {active.role ? <Staff shelterId={active.shelterId} manager={manager} /> : null}
+          {manager && shelter ? <OrganizationEditor key={'org-' + shelter.id} shelter={shelter} onSaved={ops.refresh} /> : null}
+          <Verification key={'verify-' + active.shelterId} shelterId={active.shelterId} status={active.verification} />
+          {verified && shelter ? <Capacity key={'capacity-' + shelter.id} shelter={shelter} onSaved={ops.refresh} /> : null}
+          {active.role ? <Staff key={'staff-' + active.shelterId} shelterId={active.shelterId} manager={manager} /> : null}
         </>
       ) : (
         <Empty icon="business-outline" title="No organization yet" />
@@ -74,6 +77,36 @@ export default function Settings() {
       </Card>
     </Screen>
   );
+}
+
+function OrganizationEditor({ shelter, onSaved }: { shelter: Shelter; onSaved: () => Promise<void> }) {
+  const { token } = useSession();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(shelter.name);
+  const [phone, setPhone] = useState(shelter.phone);
+  const [website, setWebsite] = useState(shelter.website);
+  const [place, setPlace] = useState<Place>({ ...shelter, label: shelter.address });
+  const { busy, error, run } = useAction();
+  if (!editing) return <Button label="Edit public details" variant="outline" icon="create-outline" onPress={() => {
+    setName(shelter.name); setPhone(shelter.phone); setWebsite(shelter.website);
+    setPlace({ ...shelter, label: shelter.address }); setEditing(true);
+  }} />;
+  const save = () => run('save', async () => {
+    if (!name.trim()) throw new Error('Enter your organization name.');
+    if (website.trim() && !/^https?:\/\//i.test(website.trim())) throw new Error('Include https:// in the website address.');
+    await db.call(token!, 'update_shelter_details', { shelterId: shelter.id, name: name.trim(), phone: phone.trim(), website: website.trim(), address: place.label, latitude: place.latitude, longitude: place.longitude });
+    await onSaved();
+    setEditing(false);
+  });
+  return <Card>
+    <Field label="Organization name" value={name} onChangeText={setName} maxLength={240} />
+    <Field label="Public phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={100} />
+    <Field label="Website" value={website} onChangeText={setWebsite} keyboardType="url" autoCapitalize="none" placeholder="https://" />
+    <LocationPicker label="Public shelter location" value={place} onChange={setPlace} />
+    <ErrorNote error={error} />
+    <Button label="Save public details" onPress={save} loading={!!busy} />
+    <Button label="Cancel" variant="ghost" onPress={() => setEditing(false)} disabled={!!busy} />
+  </Card>;
 }
 
 function Verification({ shelterId, status }: { shelterId: string; status: string }) {
@@ -130,8 +163,8 @@ function Capacity({ shelter, onSaved }: { shelter: Shelter; onSaved: () => Promi
     run('capacity', async () => {
       const totalCapacity = Number(total);
       const currentOccupancy = Number(occupied);
-      if (!Number.isInteger(totalCapacity) || totalCapacity < 0) throw new Error('Enter total spaces as a whole number.');
-      if (!Number.isInteger(currentOccupancy) || currentOccupancy < 0 || currentOccupancy > totalCapacity)
+      if (!total.trim() || !Number.isInteger(totalCapacity) || totalCapacity < 0) throw new Error('Enter total spaces as a whole number.');
+      if (!occupied.trim() || !Number.isInteger(currentOccupancy) || currentOccupancy < 0 || currentOccupancy > totalCapacity)
         throw new Error('Occupancy must be a whole number no greater than total spaces.');
       await db.call(token!, 'update_shelter_capacity', { shelterId: shelter.id, totalCapacity, currentOccupancy, acceptingAnimals: accepting });
       await onSaved();
@@ -161,15 +194,8 @@ function Capacity({ shelter, onSaved }: { shelter: Shelter; onSaved: () => Promi
 }
 
 function Staff({ shelterId, manager }: { shelterId: string; manager: boolean }) {
-  const { token, profile, access } = useSession();
-  const staff = useLive(async () => {
-    try {
-      return await db.read<StaffMember[]>(token!, 'shelter_staff', shelterId);
-    } catch {
-      const self = access?.staff.find((s) => s.shelterId === shelterId);
-      return profile && self ? [{ userId: profile.id, role: self.role, name: profile.name }] : [];
-    }
-  }, `staff:${shelterId}:${profile?.id}`);
+  const { token, profile } = useSession();
+  const staff = useLive(() => db.read<StaffMember[]>(token!, 'shelter_staff', shelterId), `staff:${shelterId}:${profile?.id}`, 15000);
   const [userId, setUserId] = useState('');
   const [role, setNewRole] = useState<'staff' | 'manager'>('staff');
   const [copied, setCopied] = useState(false);

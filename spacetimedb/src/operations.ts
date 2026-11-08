@@ -123,6 +123,15 @@ export const set_shelter_staff = action((ctx, p) => {
   if (ctx.db.staff.id.find(key)) ctx.db.staff.id.update(row);
   else ctx.db.staff.insert(row);
 });
+export const update_shelter_details = action((ctx, p) => {
+  const key = id(p, "shelterId");
+  const shelter = ctx.db.shelters.id.find(key);
+  if (!shelter || !isStaff(ctx, key) || ctx.db.staff.id.find(key + ":" + sender(ctx))?.role !== "manager")
+    fail("Verified shelter manager required");
+  const details = directoryFields(p);
+  if (details.website && !/^https?:\/\//i.test(details.website)) fail("Use a public website URL");
+  ctx.db.shelters.id.update({ ...shelter, ...details });
+});
 export const upsert_directory_shelter = action((ctx, p) => {
   service(ctx);
   const incoming = id(p);

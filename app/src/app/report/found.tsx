@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -8,7 +8,7 @@ import { PhotoSlot } from '@/components/photos';
 import { Button, Card, Chips, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { agent, db } from '@/lib/api';
 import { useDraft } from '@/lib/drafts';
-import { conditions, dateTime, hoursAgo, sinceOptions, speciesLabel } from '@/lib/format';
+import { conditions, dateTime, hoursAgo, publicArea, sinceOptions, speciesLabel } from '@/lib/format';
 import { useAction } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
 import type { Place } from '@/lib/location';
@@ -50,15 +50,17 @@ const urgent = ['injured', 'severe injury', 'trapped', 'immediate danger'];
 
 export default function FoundReport() {
   const { token } = useSession();
+  const params = useLocalSearchParams<{ condition?: string }>();
   const { place } = usePlace();
-  const { draft, update, clear } = useDraft<Draft>('found', fresh);
+  const { draft, update, clear, storageError } = useDraft<Draft>('found', fresh);
   const { busy, error, setError, run } = useAction();
   const [progress, setProgress] = useState<string>();
 
   useEffect(() => {
     if (draft && !draft.place && place && !draft.reviewing) update({ place });
+    if (draft && !draft.reviewing && draft.condition === 'unknown' && params.condition === 'injured') update({ condition: 'injured' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft?.reportId, place]);
+  }, [draft?.reportId, place, params.condition]);
 
   if (!draft)
     return (
@@ -78,7 +80,7 @@ export default function FoundReport() {
 
   const review = () =>
     run('review', async () => {
-      if (!draft.images.length) throw new Error('Add at least one photo of the animal.');
+      if (!draft.images.length && !urgent.includes(draft.condition)) throw new Error('Add a photo for matching, or select the reported urgent condition if a photo would be unsafe.');
       if (!draft.place) throw new Error('Choose where you found the animal.');
       const uploaded = [...draft.uploaded];
       for (const [i, image] of draft.images.entries()) {
@@ -131,20 +133,22 @@ export default function FoundReport() {
       <Screen>
         <Stack.Screen options={{ title: 'Report a found animal' }} />
         <SectionTitle>Review before publishing</SectionTitle>
-        <Row style={{ flexWrap: 'nowrap' }}>
+        {draft.images.length ? <Row style={{ flexWrap: 'nowrap' }}>
           {draft.images.map((img, i) => (
             <Image key={i} source={{ uri: img.uri }} style={local.preview} contentFit="cover" />
           ))}
-        </Row>
+        </Row> : null}
         <Card>
           <KeyValue label="Animal" value={[speciesLabel(draft.species), draft.breed, draft.colors].filter(Boolean).join(' · ')} />
           <KeyValue label="Condition" value={conditions.find((c) => c.value === draft.condition)?.label} />
           <KeyValue label="Found" value={dateTime(draft.observedAt)} />
-          <KeyValue label="Where" value={draft.place?.label} />
+          <KeyValue label="Public area" value={publicArea(draft.place)} />
           <KeyValue label="Notes" value={draft.description || 'None'} />
         </Card>
         <Notice title="What happens next">
-          A rescue case opens for verified shelters nearby, and PawSafe compares your photos with registered lost pets. Publicly, only the species, time and an approximate area are visible.
+          {draft.images.length
+            ? 'Verified shelters can accept this case. PawSafe will compare the photos with registered lost pets.'
+            : 'Verified shelters can accept this case. There are no photos to compare for a visual match.'}
         </Notice>
         {guidance}
         <ErrorNote error={error} />
@@ -157,12 +161,13 @@ export default function FoundReport() {
     <Screen>
       <Stack.Screen options={{ title: 'Report a found animal' }} />
       <SectionTitle>Photos</SectionTitle>
-      <Muted>Capture the animal clearly, plus any collar or markings. Up to three photos.</Muted>
+      <Muted>Add up to three photos of the animal and its markings. You can report an injured or endangered animal without a photo.</Muted>
       <Row style={{ flexWrap: 'nowrap' }}>
         {[0, 1, 2].map((i) => (
           <PhotoSlot key={i} label={i === 0 ? 'Animal' : i === 1 ? 'Another angle' : 'Collar / marks'} image={draft.images[i]} onPick={(img) => setImage(Math.min(i, draft.images.length), img)} onError={setError} />
         ))}
       </Row>
+      {draft.images.length ? <Button label="Remove last photo" compact variant="ghost" disabled={!!busy} onPress={() => update({ images: draft.images.slice(0, -1), uploaded: draft.uploaded.slice(0, -1) })} /> : null}
       <Toggle label="Photos show only this animal" value={draft.singleAnimal} onChange={(singleAnimal) => update({ singleAnimal })} />
       <Chips
         label="Species"
@@ -188,6 +193,7 @@ export default function FoundReport() {
       <LocationPicker label="Where did you find them?" value={draft.place} onChange={(p) => update({ place: p })} />
       <Field label="Notes for responders" value={draft.description} onChangeText={(description) => update({ description })} multiline placeholder="Friendly, limping on back leg, near the park entrance" />
       <ErrorNote error={error} />
+      {storageError ? <Notice tone="warning">{storageError}</Notice> : null}
       {progress ? <Muted>{progress}</Muted> : null}
       <Button label="Review report" icon="arrow-forward" onPress={review} loading={busy === 'review'} />
     </Screen>

@@ -48,7 +48,6 @@ class Reference(Metadata):
 
 class Search(Metadata):
     candidatePhotoIds: list[Identifier] = Field(min_length=1, max_length=20)
-    includeUnreviewed: bool = False
     references: list[Reference] | None = Field(None, max_length=500)
     radiusKm: float = Field(50, gt=0, le=20050)
     topK: int = Field(5, ge=1, le=100)

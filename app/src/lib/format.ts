@@ -18,6 +18,12 @@ export const dateTime = (iso?: string) => (iso ? new Date(iso).toLocaleString() 
 
 export const km = (value: number) => (value < 1 ? '<1 km' : `${Math.round(value)} km`);
 
+/** Use the same coordinate rounding as the database's public report summary. */
+export function publicArea(point?: { latitude: number; longitude: number }) {
+  if (!point) return undefined;
+  return [point.latitude, point.longitude].map((n) => (Math.round(n * 10) / 10).toFixed(1)).join(', ');
+}
+
 export const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export const speciesLabel = (species: string) => (species === 'other' ? 'Animal' : capitalize(species));

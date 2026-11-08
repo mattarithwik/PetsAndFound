@@ -17,6 +17,7 @@ export function PinMap({ pins, center, onPress }: { pins: Pin[]; center?: { lati
   return (
     <View style={local.wrap}>
       <MapView
+        key={`${focus.latitude},${focus.longitude}:${spread.toFixed(3)}`}
         style={StyleSheet.absoluteFill}
         initialRegion={{ ...focus, latitudeDelta: spread * 2.4, longitudeDelta: spread * 2.4 }}>
         {pins.map((pin) => (

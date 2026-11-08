@@ -20,7 +20,7 @@ export interface Result<T> {
 }
 export interface ExternalPetReport {
   id: string;
-  source: "bluesky" | "shelterluv" | "dallas";
+  source: "bluesky" | "rescuegroups" | "dallas";
   sourceRecordId: string;
   sourceUrl: string;
   reportType: "lost" | "found" | "shelter_listing" | "unknown";
@@ -128,15 +128,13 @@ export function permittedPhotos(principal: string, candidates: unknown[]) {
       candidates.map((v) => publicUrl(v, true)).filter((v): v is string => !!v),
     ),
   ];
-  const allowed = rights.has(principal) ||
-    (principal.startsWith("shelterluv:") && process.env.SHELTERLUV_IMAGE_MATCHING === "true");
-  const approved = allowed
+  const approved = rights.has(principal)
     ? photoUrls.filter((url) => {
         const u = new URL(url);
         return !u.port && hosts.has(u.hostname.toLowerCase());
       })
     : [];
-  // Every processed image must come from an explicitly configured publisher or public-feed switch and exact media host.
+  // An approval applies to a publisher and exact media hosts. Never pass unrelated images to inference.
   return {
     photoUrls: approved.length ? approved.slice(0, 5) : photoUrls.slice(0, 5),
     processingAllowed: approved.length > 0,

@@ -1,47 +1,72 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { useSession } from './session';
 import type { AgentResult, UploadedPhoto } from './types';
 
-export type ChatRequest = { requestId: string; text: string; photos: ChatPhoto[]; previousRunId?: string };
-
+type Context = {
+  location?: { latitude: number; longitude: number };
+  city?: string;
+  reportId?: string;
+  photos?: UploadedPhoto[];
+};
+export type ChatRequest = { requestId: string; text: string; context: Context; previousRunId?: string };
+export type ChatPhoto = UploadedPhoto & { uri: string };
 export type ChatMessage =
   | { id: string; from: 'user'; text: string; photoUri?: string }
-  | { id: string; from: 'agent'; text: string; result?: AgentResult; retry?: ChatRequest };
+  | { id: string; from: 'agent'; text: string; result?: AgentResult; retry?: ChatRequest; declined?: boolean };
 
-export type ChatPhoto = UploadedPhoto & { uri: string };
-
-type ChatState = {
-  messages: ChatMessage[];
-  previousRunId?: string;
-  photos: ChatPhoto[];
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
-  setPreviousRunId(id?: string): void;
-  setPhotos: React.Dispatch<React.SetStateAction<ChatPhoto[]>>;
+function emptyConversation(owner?: string, generation = 0, reportId?: string) {
+  return {
+    owner,
+    generation,
+    messages: [] as ChatMessage[],
+    photos: [] as ChatPhoto[],
+    previousRunId: undefined as string | undefined,
+    reportId,
+    sending: false,
+    uploading: false,
+  };
+}
+type Conversation = ReturnType<typeof emptyConversation>;
+type ChatState = Conversation & {
+  update(patch: Partial<Conversation>): void;
+  setMessages(change: (list: ChatMessage[]) => ChatMessage[]): void;
   reset(): void;
+  openReport(id: string): void;
 };
-
 const ChatContext = createContext<ChatState | null>(null);
 
-/** Keeps the Pawtricia conversation alive while the user moves between tabs. */
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [previousRunId, setPreviousRunId] = useState<string>();
-  const [photos, setPhotos] = useState<ChatPhoto[]>([]);
-  const value = useMemo(
+  const owner = useSession().profile?.id;
+  const [chat, setChat] = useState(() => emptyConversation(owner));
+  if (chat.owner !== owner) setChat(emptyConversation(owner, chat.generation + 1));
+  const openReport = useCallback(
+    (id: string) => {
+      setChat((current) =>
+        current.reportId === id ? current : emptyConversation(owner, current.generation + 1, id),
+      );
+    },
+    [owner],
+  );
+  const value = useMemo<ChatState>(
     () => ({
-      messages,
-      previousRunId,
-      photos,
-      setMessages,
-      setPreviousRunId,
-      setPhotos,
-      reset() {
-        setMessages([]);
-        setPreviousRunId(undefined);
-        setPhotos([]);
-      },
+      ...chat,
+      openReport,
+      update: (patch) =>
+        setChat((current) =>
+          current.owner === owner && current.generation === chat.generation
+            ? { ...current, ...patch }
+            : current,
+        ),
+      setMessages: (change) =>
+        setChat((current) =>
+          current.owner === owner && current.generation === chat.generation
+            ? { ...current, messages: change(current.messages) }
+            : current,
+        ),
+      reset: () => setChat((current) => emptyConversation(owner, current.generation + 1)),
     }),
-    [messages, previousRunId, photos],
+    [chat, owner, openReport],
   );
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

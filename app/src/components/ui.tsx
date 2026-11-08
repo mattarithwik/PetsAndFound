@@ -3,6 +3,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,16 +18,18 @@ import {
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
+export const displayFont = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+
 export const colors = {
   sky: '#4099E6',
   navy: '#0064BC',
   baby: '#AED9FF',
   pale: '#E8F5FF',
-  bg: '#F7FBFF',
+  bg: '#FCFBF7',
   white: '#FFFFFF',
-  text: '#12324B',
-  muted: '#5E6F7D',
-  border: '#D5EAFF',
+  text: '#112F46',
+  muted: '#4F6471',
+  border: '#D6E1E6',
   danger: '#C62828',
   dangerBg: '#FDECEC',
   warning: '#9A5B00',
@@ -135,16 +138,17 @@ type ButtonProps = {
 };
 
 export function Button({ label, onPress, variant = 'primary', icon, loading, disabled, compact, style }: ButtonProps) {
-  const fg = variant === 'primary' || variant === 'danger' ? colors.white : variant === 'ghost' ? colors.navy : colors.sky;
+  const fg = variant === 'primary' || variant === 'danger' ? colors.white : colors.navy;
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       style={({ pressed }) => [
         styles.button,
         compact && styles.buttonCompact,
-        variant === 'primary' && { backgroundColor: colors.sky },
+        variant === 'primary' && { backgroundColor: colors.navy },
         variant === 'danger' && { backgroundColor: colors.danger },
         variant === 'outline' && styles.buttonOutline,
         variant === 'ghost' && styles.buttonGhost,
@@ -163,6 +167,7 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         placeholderTextColor="#8CA0B0"
         {...props}
         style={[styles.input, props.multiline && styles.inputMultiline, props.style]}
@@ -202,7 +207,7 @@ export function Toggle({ label, detail, value, onChange }: { label: string; deta
         <Text style={styles.strong}>{label}</Text>
         {detail ? <Text style={styles.muted}>{detail}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.sky, false: '#CBD5DD' }} />
+      <Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: colors.sky, false: '#CBD5DD' }} />
     </View>
   );
 }
@@ -306,7 +311,7 @@ export function ListRow({ icon, title, detail, right, onPress }: { icon?: IconNa
 
 export function SourceLink({ url, label }: { url: string; label?: string }) {
   return (
-    <Text style={styles.link} onPress={() => Linking.openURL(url)} numberOfLines={1}>
+    <Text accessibilityRole="link" style={styles.link} onPress={() => { if (/^https?:\/\//i.test(url)) void Linking.openURL(url).catch(() => undefined); }} numberOfLines={1}>
       {label ?? url.replace(/^https?:\/\//, '')}
     </Text>
   );
@@ -330,29 +335,26 @@ export const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   alignStart: { alignSelf: 'flex-start' },
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 18, gap: 12 },
+  content: { width: '100%', maxWidth: 880, alignSelf: 'center', padding: 20, gap: 14 },
   hero: {
-    backgroundColor: colors.sky,
-    marginHorizontal: -18,
-    marginTop: -18,
+    backgroundColor: '#D9EEFF',
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 26,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 4,
   },
-  heroTitle: { color: colors.white, fontSize: 26, fontWeight: '800' },
-  heroSubtitle: { color: '#EAF5FF', fontSize: 14, marginTop: 4, lineHeight: 20 },
+  heroTitle: { fontFamily: displayFont, color: colors.text, fontSize: 36, letterSpacing: -1.3, fontWeight: 'bold' },
+  heroSubtitle: { color: colors.text, fontSize: 15, marginTop: 7, lineHeight: 22, maxWidth: 560 },
   card: { backgroundColor: colors.white, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.border, gap: 6 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.5 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  sectionTitle: { fontSize: 19, fontWeight: '800', color: colors.text },
-  title: { fontSize: 24, fontWeight: '800', color: colors.text },
+  sectionTitle: { flexShrink: 1, fontFamily: displayFont, fontSize: 24, letterSpacing: -0.7, fontWeight: 'bold', color: colors.text },
+  title: { fontFamily: displayFont, fontSize: 29, letterSpacing: -0.8, fontWeight: 'bold', color: colors.text },
   body: { fontSize: 15, lineHeight: 21, color: colors.text },
   muted: { fontSize: 13, lineHeight: 18, color: colors.muted },
   strong: { fontSize: 16, fontWeight: '700', color: colors.text },

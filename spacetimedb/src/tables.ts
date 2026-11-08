@@ -38,6 +38,7 @@ const photoFields = () => ({
   embeddingRef: s(),
 });
 export const petPhotos = table({ name: "pet_photos" }, { ...photoFields(), petId: ix() });
+const petCareNotes = table({ name: "pet_care_notes" }, { petId: pk(), text: s() });
 export const reportPhotos = table({ name: "report_photos" }, { ...photoFields(), reportId: ix() });
 export const reports = table(
   { name: "reports" },
@@ -209,6 +210,7 @@ const db = schema({
   users,
   pets,
   petPhotos,
+  petCareNotes,
   reportPhotos,
   reports,
   reportSummaries,

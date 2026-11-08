@@ -49,7 +49,7 @@ export default function Cases() {
       />
       <Muted>
         {view === 'incoming'
-          ? 'Unassigned found-animal reports, critical first. Priority comes from the reported condition.'
+          ? 'Unassigned intakes and lost-pet follow-ups, ordered by reported urgency.'
           : view === 'ours'
             ? 'Cases your shelter has taken responsibility for.'
             : 'Resolved and cancelled cases.'}

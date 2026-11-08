@@ -5,7 +5,7 @@ import { LocationPicker } from '@/components/location-picker';
 import { Button, Card, Chips, Empty, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Screen, SectionTitle } from '@/components/ui';
 import { agent, db } from '@/lib/api';
 import { useDraft } from '@/lib/drafts';
-import { dateTime, hoursAgo, sinceOptions } from '@/lib/format';
+import { dateTime, hoursAgo, publicArea, sinceOptions } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
 import type { Place } from '@/lib/location';
@@ -29,9 +29,9 @@ export default function LostReport() {
   const params = useLocalSearchParams<{ petId?: string }>();
   const { token } = useSession();
   const { place } = usePlace();
-  const { draft, update, clear } = useDraft<Draft>('lost', fresh);
+  const { draft, update, clear, storageError } = useDraft<Draft>('lost', fresh);
   const { busy, error, setError, run } = useAction();
-  const pets = useLive(() => db.read<Pet[]>(token!, 'pets'), 'pets');
+  const pets = useLive(() => db.read<Pet[]>(token!, 'pets'), 'pets', 0, ['my_pets']);
 
   useEffect(() => {
     if (!draft || draft.reviewing) return;
@@ -50,6 +50,8 @@ export default function LostReport() {
     );
   const pet = pets.data?.find((p) => p.id === draft.petId);
 
+  if (pets.error && !pets.data)
+    return <Screen><Stack.Screen options={{ title: 'Report a lost pet' }} /><ErrorNote error={pets.error} onRetry={pets.refresh} /></Screen>;
   if (pets.data && !pets.data.length)
     return (
       <Screen>
@@ -93,7 +95,7 @@ export default function LostReport() {
         <Card>
           <KeyValue label="Pet" value={pet?.name} />
           <KeyValue label="Last seen" value={dateTime(draft.observedAt)} />
-          <KeyValue label="Area" value={draft.place?.label} />
+          <KeyValue label="Public area" value={publicArea(draft.place)} />
           <KeyValue label="Details" value={draft.description || 'None'} />
         </Card>
         <Notice title="What becomes public">
@@ -120,6 +122,7 @@ export default function LostReport() {
         placeholder="Ran off during the storm, wearing a red collar, scared of strangers"
       />
       <ErrorNote error={error} />
+      {storageError ? <Notice tone="warning">{storageError}</Notice> : null}
       <Button label="Review report" icon="arrow-forward" onPress={review} />
     </Screen>
   );

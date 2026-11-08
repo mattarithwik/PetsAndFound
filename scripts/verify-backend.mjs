@@ -174,6 +174,8 @@ try {
   let sim = await startSimulation(actor, { id: runId, scenarioId: "tornado" });
   sim = await step(actor, runId, { revision: sim.revision, choiceId: "shelter" });
   sim = await step(actor, runId, { revision: sim.revision, choiceId: "secure" });
+  assert.equal(sim.scene.id, "after");
+  sim = await step(actor, runId, { revision: sim.revision, choiceId: "check" });
   assert.equal(sim.score, 100);
   assert.equal(sim.completed, true);
   assert.equal(await finderDb.read("simulation_run", runId), null);

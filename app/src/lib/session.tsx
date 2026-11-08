@@ -1,7 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AppState } from 'react-native';
 
 import { db } from './api';
+import { startRealtime } from './realtime';
 import { storage } from './storage';
 import type { Access, AppNotification, Profile, Role } from './types';
 
@@ -17,6 +27,7 @@ type Session = {
   profile: Profile | null;
   access?: Access;
   notifications: AppNotification[];
+  notificationStatus: 'loading' | 'ready' | 'unavailable';
   unread: number;
   online: boolean;
   activeShelterId?: string;
@@ -31,6 +42,14 @@ type Session = {
 };
 
 const SessionContext = createContext<Session | null>(null);
+
+async function snapshot(token: string) {
+  const [profile, access] = await Promise.all([
+    db.read<Profile | null>(token, 'profile'),
+    db.read<Access>(token, 'access'),
+  ]);
+  return { profile, access };
+}
 
 function profilePayload(p: ProfileInput) {
   return {
@@ -48,58 +67,117 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [access, setAccess] = useState<Access>();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationStatus, setNotificationStatus] = useState<Session['notificationStatus']>('loading');
   const [online, setOnline] = useState(true);
   const [activeShelterId, setActiveShelter] = useState<string>();
+  const currentToken = useRef<string | undefined>(undefined);
+  const loadNumber = useRef(0);
+  const notificationNumber = useRef(0);
+  const profileId = profile?.id;
+
+  const remember = useCallback(async (value: string, nextRole: Role) => {
+    await Promise.all([storage.set(TOKEN_KEY, value), storage.set(ROLE_KEY, nextRole)]);
+    currentToken.current = value;
+    setToken(value);
+    setRoleState(nextRole);
+  }, []);
 
   const load = useCallback(async (value: string) => {
-    const [nextProfile, nextAccess] = await Promise.all([
-      db.read<Profile | null>(value, 'profile'),
-      db.read<Access>(value, 'access'),
-    ]);
-    setProfile(nextProfile);
-    setAccess(nextAccess);
-    setOnline(true);
-    return nextProfile;
+    const attempt = ++loadNumber.current;
+    const next = await snapshot(value);
+    if (currentToken.current === value && attempt === loadNumber.current) {
+      setProfile(next.profile);
+      setAccess(next.access);
+      setOnline(true);
+    }
   }, []);
 
   useEffect(() => {
+    let active = true;
     (async () => {
       const [savedToken, savedRole] = await Promise.all([storage.get(TOKEN_KEY), storage.get(ROLE_KEY)]);
-      if (savedToken) {
+      if (active && savedToken) {
+        currentToken.current = savedToken;
         setToken(savedToken);
-        setRoleState((savedRole as Role) || 'owner');
+        setRoleState(savedRole === 'shelter' ? 'shelter' : 'owner');
         try {
           await load(savedToken);
         } catch {
           setOnline(false);
         }
       }
-      setReady(true);
-    })();
+    })()
+      .catch(() => setOnline(false))
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   const refreshNotifications = useCallback(async () => {
-    if (!token || !profile) return;
+    if (!token || !profileId) return;
+    const attempt = ++notificationNumber.current;
     try {
       const rows = await db.read<AppNotification[]>(token, 'notifications');
+      if (currentToken.current !== token || attempt !== notificationNumber.current) return;
       setNotifications(rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      setNotificationStatus('ready');
       setOnline(true);
     } catch {
-      setOnline(false);
+      if (currentToken.current === token && attempt === notificationNumber.current) {
+        setOnline(false);
+        setNotificationStatus('unavailable');
+      }
     }
-  }, [token, profile]);
+  }, [token, profileId]);
 
-  // Notifications are persistent records, so polling recovers anything missed while offline.
   useEffect(() => {
-    if (!token || !profile) return;
-    refreshNotifications();
-    const timer = setInterval(refreshNotifications, 8000);
-    const sub = AppState.addEventListener('change', (state) => state === 'active' && refreshNotifications());
+    if (!ready || !token || profileId || online) return;
+    const reconnect = () => {
+      void load(token).catch(() => undefined);
+    };
+    const timer = setInterval(reconnect, 10000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') reconnect();
+    });
     return () => {
       clearInterval(timer);
       sub.remove();
     };
-  }, [token, profile, refreshNotifications]);
+  }, [ready, token, profileId, online, load]);
+
+  useEffect(() => {
+    if (!token || !profileId) return;
+    const refreshAccess = () =>
+      load(token).catch(() => {
+        if (currentToken.current === token) setOnline(false);
+      });
+    const refreshAll = () => {
+      void refreshNotifications();
+      void refreshAccess();
+    };
+    const stop = startRealtime(token, (tables) => {
+      if (tables.has('my_notifications')) void refreshNotifications();
+      if (
+        ['my_profile', 'my_staff_roles', 'my_shelter_verifications', 'shelters'].some((name) =>
+          tables.has(name),
+        )
+      )
+        void refreshAccess();
+    });
+    void refreshNotifications();
+    const timer = setInterval(refreshAll, 20000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshAll();
+    });
+    return () => {
+      stop();
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [token, profileId, load, refreshNotifications]);
 
   const value = useMemo<Session>(
     () => ({
@@ -109,25 +187,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       profile,
       access,
       notifications,
+      notificationStatus,
       unread: notifications.filter((n) => !n.readAt).length,
       online,
       activeShelterId,
       setActiveShelter,
       async createAccount(nextRole, input) {
-        const identity = await db.createIdentity();
-        await db.call(identity.token, 'register_user', profilePayload(input));
-        await Promise.all([storage.set(TOKEN_KEY, identity.token), storage.set(ROLE_KEY, nextRole)]);
-        setToken(identity.token);
-        setRoleState(nextRole);
-        await load(identity.token);
+        // Save the identity before registering. A dropped acknowledgement can safely be retried.
+        const value = currentToken.current || (await db.createIdentity()).token;
+        await remember(value, nextRole);
+        await db.call(value, 'register_user', profilePayload(input));
+        await load(value);
       },
       async restore(nextRole, value) {
         const trimmed = value.trim();
-        const restored = await load(trimmed);
-        if (!restored) throw new Error('No PawSafe profile is linked to that account key.');
-        await Promise.all([storage.set(TOKEN_KEY, trimmed), storage.set(ROLE_KEY, nextRole)]);
-        setToken(trimmed);
-        setRoleState(nextRole);
+        const restored = await snapshot(trimmed);
+        if (!restored.profile) throw new Error('No PawSafe profile is linked to that account key.');
+        await remember(trimmed, nextRole);
+        setProfile(restored.profile);
+        setAccess(restored.access);
+        setNotifications([]);
+        setNotificationStatus('loading');
+        setActiveShelter(undefined);
+        setOnline(true);
       },
       async saveProfile(input) {
         if (!token) throw new Error('Sign in first.');
@@ -144,15 +226,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refreshNotifications,
       async signOut() {
         await Promise.all([storage.remove(TOKEN_KEY), storage.remove(ROLE_KEY)]);
+        currentToken.current = undefined;
         setToken(undefined);
         setRoleState(undefined);
         setProfile(null);
         setAccess(undefined);
         setNotifications([]);
+        setNotificationStatus('loading');
         setActiveShelter(undefined);
       },
     }),
-    [ready, token, role, profile, access, notifications, online, activeShelterId, load, refreshNotifications],
+    [
+      ready,
+      token,
+      role,
+      profile,
+      access,
+      notifications,
+      notificationStatus,
+      online,
+      activeShelterId,
+      load,
+      remember,
+      refreshNotifications,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

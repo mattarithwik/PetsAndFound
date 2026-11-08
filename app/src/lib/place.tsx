@@ -1,9 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { currentPlace, type Place } from './location';
+import { useSession } from './session';
 import { readJson, writeJson } from './storage';
-
-const KEY = 'pawsafe.place';
 
 type PlaceState = {
   place?: Place;
@@ -15,37 +23,76 @@ type PlaceState = {
 
 const PlaceContext = createContext<PlaceState | null>(null);
 
-/** The user's working area for nearby searches, alerts and shelters. */
 export function PlaceProvider({ children }: { children: ReactNode }) {
-  const [place, setPlaceState] = useState<Place>();
+  const owner = useSession().profile?.id;
+  const [selection, setSelection] = useState<{ owner?: string; place?: Place }>({});
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string>();
+  const guestPlace = useRef<Place | undefined>(undefined);
+  const revision = useRef(0);
+  const place = selection.owner === owner ? selection.place : undefined;
 
   useEffect(() => {
-    readJson<Place | undefined>(KEY, undefined).then((saved) => saved && setPlaceState(saved));
-  }, []);
-
-  const setPlace = useCallback((next: Place) => {
-    setPlaceState(next);
+    let active = true;
+    const version = ++revision.current;
+    setLocating(false);
     setError(undefined);
-    writeJson(KEY, next);
-  }, []);
+    if (!owner) {
+      guestPlace.current = undefined;
+      setSelection({});
+      return;
+    }
+    const key = 'pawsafe.place.' + owner;
+    const selectedDuringSetup = guestPlace.current;
+    guestPlace.current = undefined;
+    readJson<Place | undefined>(key, undefined).then((saved) => {
+      if (!active || version !== revision.current) return;
+      setSelection({ owner, place: saved ?? selectedDuringSetup });
+      if (!saved && selectedDuringSetup)
+        void writeJson(key, selectedDuringSetup).catch(() =>
+          setError('Your area could not be saved on this device.'),
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [owner]);
+
+  const setPlace = useCallback(
+    (next: Place) => {
+      revision.current++;
+      setSelection({ owner, place: next });
+      setError(undefined);
+      if (!owner) guestPlace.current = next;
+      else
+        void writeJson('pawsafe.place.' + owner, next).catch(() =>
+          setError('Your area could not be saved on this device.'),
+        );
+    },
+    [owner],
+  );
 
   const locate = useCallback(async () => {
+    const version = revision.current;
     setLocating(true);
     setError(undefined);
     try {
       const next = await currentPlace();
+      if (version !== revision.current) return;
       setPlace(next);
       return next;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not get your location.');
+      if (version === revision.current)
+        setError(e instanceof Error ? e.message : 'Could not get your location.');
     } finally {
       setLocating(false);
     }
   }, [setPlace]);
 
-  const value = useMemo(() => ({ place, locating, error, locate, setPlace }), [place, locating, error, locate, setPlace]);
+  const value = useMemo(
+    () => ({ place, locating, error, locate, setPlace }),
+    [place, locating, error, locate, setPlace],
+  );
   return <PlaceContext.Provider value={value}>{children}</PlaceContext.Provider>;
 }
 

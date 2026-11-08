@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { Platform } from 'react-native';
 
 import { LocationPicker } from '@/components/location-picker';
 import { Body, Button, Card, Chips, Empty, ErrorNote, Field, Hero, ListRow, Muted, Notice, Screen, SectionTitle, Strong } from '@/components/ui';
@@ -25,6 +26,7 @@ export default function ShelterOnboarding() {
   const location = orgPlace ?? place;
   const [orgId] = useState(() => `org-${uuid()}`);
   const [nearby, setNearby] = useState<NearbyShelter[]>();
+  const [unavailable, setUnavailable] = useState<string[]>([]);
   const [claim, setClaim] = useState<NearbyShelter>();
   const { busy, error, run } = useAction();
 
@@ -40,6 +42,7 @@ export default function ShelterOnboarding() {
         <Hero title="ShelterDash" subtitle="Coordinate care and help animals get home safely. Start with your staff profile." />
         <Field label="Your name" value={name} onChangeText={setName} placeholder="Alex Rivera" autoComplete="name" />
         <LocationPicker label="Where you work" value={place} onChange={setPlace} />
+        {Platform.OS === 'web' ? <Muted>To sign in after closing this tab, save your account key from ShelterDash → Settings → Profile and account key.</Muted> : null}
         <ErrorNote error={error} />
         <Button
           label="Create staff account"
@@ -47,7 +50,7 @@ export default function ShelterOnboarding() {
           onPress={() =>
             run('account', async () => {
               if (!name.trim()) throw new Error('Enter your name.');
-              await createAccount('shelter', { name, generalLocation: place?.city ?? place?.label });
+              await createAccount('shelter', { name, generalLocation: place?.city });
             })
           }
         />
@@ -60,6 +63,7 @@ export default function ShelterOnboarding() {
       if (!org.name.trim()) throw new Error('Enter the organization name.');
       if (!location) throw new Error('Choose the organization location.');
       if (!org.evidence.trim()) throw new Error('Describe how reviewers can verify your organization.');
+      if (org.website.trim() && !/^https?:\/\//i.test(org.website.trim())) throw new Error('Include https:// in the organization website.');
       try {
         await db.call(token, 'register_shelter', {
           id: orgId,
@@ -82,6 +86,9 @@ export default function ShelterOnboarding() {
     run('search', async () => {
       const center = location;
       if (!center) throw new Error('Choose a location to search near.');
+      setNearby(undefined);
+      setClaim(undefined);
+      setUnavailable([]);
       const result = await agent.post<Sourced<NearbyShelter>>(token, '/v1/ingestion/shelters/sync', {
         latitude: center.latitude,
         longitude: center.longitude,
@@ -89,6 +96,7 @@ export default function ShelterOnboarding() {
         limit: 25,
       });
       setNearby(result.items.filter((s) => !s.operatorVerified));
+      setUnavailable(result.sources.filter((s) => s.status === 'unavailable').map((s) => s.source));
     });
 
   const submitClaim = () =>
@@ -130,10 +138,11 @@ export default function ShelterOnboarding() {
       ) : null}
       {path === 'claim' ? (
         <>
-          <Muted>Find your shelter in the public directory (OpenStreetMap and Shelterluv), then send evidence for review.</Muted>
-          <LocationPicker label="Search near" value={orgPlace ?? place} onChange={setOrgPlace} />
+          <Muted>Find your shelter in the public directory (OpenStreetMap and RescueGroups), then send evidence for review.</Muted>
+          <LocationPicker label="Search near" value={orgPlace ?? place} onChange={(next) => { setOrgPlace(next); setNearby(undefined); setClaim(undefined); setUnavailable([]); }} />
           <Button label="Find directory listings" variant="outline" icon="search" onPress={findListings} loading={busy === 'search'} />
-          {nearby?.length === 0 ? <Empty title="No unclaimed listings nearby" body="Register your organization instead." /> : null}
+          {unavailable.length ? <Notice tone="warning">{'Unavailable directories: ' + unavailable.join(', ')}</Notice> : null}
+          {nearby?.length === 0 ? <Empty title="No unclaimed listings in the available results" body="You can register your organization using its public address." /> : null}
           {nearby?.map((s) => (
             <ListRow
               key={s.id}

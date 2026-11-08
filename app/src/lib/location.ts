@@ -31,9 +31,13 @@ type PhotonFeature = {
 
 function toPlace(f: PhotonFeature, fallback?: { latitude: number; longitude: number }): Place {
   const p = f.properties;
-  const city = p.city || p.town || p.village || p.county;
+  const locality = ['city', 'town', 'village', 'hamlet'];
+  const city = p.city || p.town || p.village ||
+    (locality.includes(p.type ?? '') || (p.osm_key === 'place' && locality.includes(p.osm_value ?? '')) ? p.name : undefined);
+  const region = p.state ?? (p.type === 'state' ? p.name : undefined);
+  const stateCode = region && (states[region.toLowerCase()] || (Object.values(states).includes(region.toUpperCase()) ? region.toUpperCase() : undefined));
   const street = [p.housenumber, p.street].filter(Boolean).join(' ');
-  const label = [p.name !== city ? p.name : undefined, street || undefined, city, p.state]
+  const label = [p.name !== city ? p.name : undefined, street || undefined, city || p.county, region, p.country]
     .filter((part, i, all) => part && all.indexOf(part) === i)
     .join(', ');
   return {
@@ -41,14 +45,38 @@ function toPlace(f: PhotonFeature, fallback?: { latitude: number; longitude: num
     longitude: fallback?.longitude ?? f.geometry.coordinates[0],
     label: label || 'Selected location',
     city,
-    state: p.countrycode === 'US' && p.state ? states[p.state.toLowerCase()] : undefined,
+    state: p.countrycode?.toUpperCase() === 'US' ? stateCode : undefined,
   };
 }
 
 async function photon(path: string) {
-  const response = await fetch(config.photonUrl + path, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error('Address lookup is unavailable right now.');
-  return ((await response.json()) as { features: PhotonFeature[] }).features;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const response = await fetch(config.photonUrl + path, { headers: { Accept: 'application/json' }, signal: controller.signal });
+    if (!response.ok) throw new Error();
+    const data = (await response.json()) as { features: PhotonFeature[] };
+    return data.features.filter((feature) => {
+      const [lon, lat] = feature?.geometry?.coordinates ?? [];
+      return feature?.properties && Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lon) && Math.abs(lon) <= 180;
+    });
+  } catch {
+    throw new Error('Address lookup is unavailable. You can still enter coordinates.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function placeFromCoordinates(latitudeText: string, longitudeText: string): Place {
+  const coordinate = (text: string, limit: number, name: string) => {
+    const value = Number(text.trim());
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text.trim()) || !Number.isFinite(value) || Math.abs(value) > limit)
+      throw new Error(`Enter a ${name} between −${limit} and ${limit} in decimal degrees.`);
+    return value;
+  };
+  const latitude = coordinate(latitudeText, 90, 'latitude');
+  const longitude = coordinate(longitudeText, 180, 'longitude');
+  return { latitude, longitude, label: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` };
 }
 
 export async function searchPlaces(query: string): Promise<Place[]> {
@@ -69,15 +97,20 @@ export async function describePoint(latitude: number, longitude: number): Promis
 export async function currentPlace(): Promise<Place> {
   if (Platform.OS !== 'web') {
     const permission = await Location.requestForegroundPermissionsAsync();
-    if (!permission.granted) throw new Error('Location permission is off. Search for an address instead.');
+    if (!permission.granted) throw new Error('Location access is off. Search an address or enter coordinates.');
   }
-  const position = await Promise.race([
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Location timed out. Search for an address instead.')), 8000),
-    ),
-  ]);
-  return describePoint(position.coords.latitude, position.coords.longitude);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const position = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Location timed out. Search an address or enter coordinates.')), 8000);
+      }),
+    ]);
+    return describePoint(position.coords.latitude, position.coords.longitude);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {

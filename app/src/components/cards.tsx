@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -69,7 +68,7 @@ export function SummaryCard({ summary, distance, onPress }: { summary: ReportSum
   );
 }
 
-const sourceLabel = { bluesky: 'Bluesky post', shelterluv: 'Shelterluv listing', dallas: 'Dallas intake' } as const;
+const sourceLabel = { bluesky: 'Bluesky post', rescuegroups: 'Shelter listing', dallas: 'Dallas animal record' } as const;
 
 export function ExternalCard({ item }: { item: ExternalReport }) {
   return (
@@ -81,7 +80,7 @@ export function ExternalCard({ item }: { item: ExternalReport }) {
       </Row>
       <Strong>{[item.species ? speciesLabel(item.species) : 'Animal', item.breed, item.colors?.join(', ')].filter(Boolean).join(' · ')}</Strong>
       <Muted>
-        {[item.locationLabel, item.postedAt ? timeAgo(item.postedAt) : undefined].filter(Boolean).join(' · ') || 'Public source listing'}
+        {[item.locationLabel, item.observedAt || item.postedAt ? dateTime(item.observedAt ?? item.postedAt) : undefined].filter(Boolean).join(' · ') || 'Public source listing'}
       </Muted>
       <SourceLink url={item.sourceUrl} label="View original source" />
     </Card>
@@ -95,16 +94,14 @@ export function MatchCard({ match }: { match: Match }) {
   return (
     <Card onPress={() => router.push(`/matches/${encodeURIComponent(match.id)}`)}>
       <Row style={local.nowrap}>
-        {match.evidence.candidatePhotoUrl
-          ? <Image source={{ uri: match.evidence.candidatePhotoUrl }} style={[local.thumb, { aspectRatio: 1 }]} contentFit="cover" />
-          : <RemotePhoto photoId={match.evidence.candidatePhotoId} style={local.thumb} />}
+        <RemotePhoto photoId={match.evidence.candidatePhotoId} style={local.thumb} />
         <View style={styles.flex}>
           <Row>
             <Badge label={match.status === 'pending' ? 'Possible match' : match.status} tone={matchTone[match.status]} />
             <SourceTag kind={match.candidateType === 'external' ? 'external' : 'live'} />
           </Row>
           <Strong>Similarity score {score ?? '—'}/100</Strong>
-          <Muted>Updated {timeAgo(match.updatedAt)} · needs human review</Muted>
+          <Muted>Updated {timeAgo(match.updatedAt)}{match.status === 'pending' ? ' · awaiting review' : ''}</Muted>
         </View>
       </Row>
     </Card>
@@ -114,6 +111,7 @@ export function MatchCard({ match }: { match: Match }) {
 export function ShelterCard({ shelter }: { shelter: NearbyShelter }) {
   const fresh = !!shelter.capacityUpdatedAt && Date.now() - Date.parse(shelter.capacityUpdatedAt) < 24 * 3600000;
   const known = shelter.operatorVerified && fresh && typeof shelter.totalCapacity === 'number' && typeof shelter.currentOccupancy === 'number';
+  const sources = (shelter.directorySources ?? []).filter((url) => /^https?:\/\//i.test(url));
   return (
     <Card>
       <Row>
@@ -122,6 +120,8 @@ export function ShelterCard({ shelter }: { shelter: NearbyShelter }) {
       </Row>
       <Strong>{shelter.name}</Strong>
       {shelter.address ? <Muted>{shelter.address}</Muted> : null}
+      {sources.length ? <Muted>{sources.length === 1 ? 'Listed in one directory' : 'Cross-listed in ' + sources.length + ' sources'}</Muted> : null}
+      {sources.map((url) => <SourceLink key={url} url={url} />)}
       <Body style={local.small}>
         {known
           ? `${Math.max(0, shelter.totalCapacity! - shelter.currentOccupancy!)} spaces reported · ${shelter.acceptingAnimals ? 'accepting animals' : 'not accepting intake'} · updated ${timeAgo(shelter.capacityUpdatedAt)}`
@@ -129,7 +129,7 @@ export function ShelterCard({ shelter }: { shelter: NearbyShelter }) {
       </Body>
       <Row>
         {shelter.phone ? <Button label="Call" icon="call-outline" compact variant="ghost" onPress={() => Linking.openURL(`tel:${shelter.phone}`)} /> : null}
-        {shelter.website ? <Button label="Website" icon="globe-outline" compact variant="ghost" onPress={() => Linking.openURL(shelter.website!)} /> : null}
+        {shelter.website && /^https?:\/\//i.test(shelter.website) ? <Button label="Website" icon="globe-outline" compact variant="ghost" onPress={() => Linking.openURL(shelter.website!)} /> : null}
         <Button
           label="Directions"
           icon="navigate-outline"
@@ -166,7 +166,7 @@ export function CaseCard({ item, onPress }: { item: RescueCase | QueuedCase; onP
   const summary = 'report' in item ? item.report : undefined;
   const full = 'status' in item ? item : undefined;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+    <Card onPress={onPress}>
       <Row>
         <Badge label={item.priority} tone={priorityTone[item.priority]} />
         {full ? <Badge label={caseStatusLabel[full.status]} tone="info" /> : <Badge label="Unassigned" tone="warning" />}
@@ -178,15 +178,15 @@ export function CaseCard({ item, onPress }: { item: RescueCase | QueuedCase; onP
         {summary ? `Observed ${timeAgo(summary.observedAt)}` : full ? `Updated ${timeAgo(full.updatedAt)}` : ''}
         {full?.reason && summary ? ` · ${full.reason}` : ''}
       </Muted>
-    </Pressable>
+    </Card>
   );
 }
 
 export function NotificationBell() {
   const { unread } = useSession();
   return (
-    <Pressable accessibilityLabel={`Notifications, ${unread} unread`} onPress={() => router.push('/notifications')} style={local.bell}>
-      <Ionicons name="notifications-outline" size={24} color={colors.white} />
+    <Pressable accessibilityRole="button" accessibilityLabel={`Notifications, ${unread} unread`} onPress={() => router.push('/notifications')} style={local.bell}>
+      <Ionicons name="notifications-outline" size={24} color={colors.navy} />
       {unread ? (
         <View style={local.dot}>
           <Text style={local.dotText}>{unread > 9 ? '9+' : unread}</Text>
@@ -200,7 +200,7 @@ const local = StyleSheet.create({
   nowrap: { flexWrap: 'nowrap' },
   thumb: { width: 64, borderRadius: 12 },
   small: { fontSize: 14 },
-  bell: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  bell: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   dotText: { color: colors.white, fontSize: 11, fontWeight: '800' },
 });

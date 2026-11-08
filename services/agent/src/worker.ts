@@ -11,17 +11,13 @@ export async function refreshSources(store: Store) {
       "service_external",
     );
   for (const row of imports) {
-    if (String(row.source) === "rescuegroups") {
-      await store.write("remove_external_report", { id: row.id });
-      continue;
-    }
     if (row.processingAllowed && !providers.eligibleExternalPhotos(row).length)
       await store.write("revoke_external_processing", { id: row.id });
     if (row.source === "bluesky" && (await providers.checkBlueskyRecord(row.sourceRecordId)) === "removed")
       await store.write("remove_external_report", { id: row.id });
     if (
-      row.source === "shelterluv" &&
-      (await providers.checkShelterluvRecord(row.sourceRecordId)) === "removed"
+      row.source === "rescuegroups" &&
+      (await providers.checkRescueGroupsRecord(row.sourceRecordId)) === "removed"
     )
       await store.write("inactive_external_listing", { id: row.id });
   }
@@ -38,16 +34,7 @@ export async function refreshSources(store: Store) {
       await ingestSocial(store, { city: r.generalLocation, species: animal.data, breed: r.breed, limit: 15 });
     const point = { latitude, longitude, radiusKm: 50, limit: 20 };
     await ingestShelters(store, point);
-    await ingestAnimals(store, { ...point, species: animal.success ? animal.data : undefined });
-    // Dallas intake and field records are historical evidence for the Dallas area.
-    if (Math.abs(latitude - 32.78) < 0.6 && Math.abs(longitude + 96.8) < 0.65) {
-      const items = await providers.searchDallas({
-        species: animal.success ? animal.data : undefined,
-        since: r.observedAt,
-        limit: 25,
-      });
-      for (const item of items.items) await store.write("upsert_external_report", item);
-    }
+    await ingestAnimals(store, { ...point, species: animal.success ? animal.data : undefined }, r.observedAt);
   }
 }
 type Retry = { version: number; delayMs: number; nextAt: number };

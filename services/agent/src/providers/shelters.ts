@@ -1,4 +1,5 @@
 import {
+  asDate,
   asPoint,
   asText,
   bounds,
@@ -14,6 +15,7 @@ import {
 } from "./common.js";
 import type {
   ExternalPetReport,
+  JsonObject,
   Near,
   Point,
   Species,
@@ -30,96 +32,153 @@ interface Shelter extends Point {
   directoryConfidence: "medium" | "high";
   operatorVerified: false;
 }
-type Group = Point & { id: string; name: string; address: string; city: string };
-// A public feed belongs to one shelter. These coordinates locate the organization,
-// not an individual animal (which may be in foster care).
-const dallasGroups: Group[] = [{
-  id: "3451",
-  name: "Dallas Pets Alive",
-  address: "3110 Commonwealth Dr, Dallas, TX 75247",
-  city: "Dallas, TX",
-  latitude: 32.8109082,
-  longitude: -96.8616349,
-}];
-function groups(): Group[] {
-  const raw = process.env.SHELTERLUV_GROUPS;
-  if (!raw) return dallasGroups;
-  const value: unknown = JSON.parse(raw);
-  if (!Array.isArray(value) || value.length > 20) throw new ProviderError("Invalid SHELTERLUV_GROUPS");
-  return value.map((item) => {
-    const g = object(item);
-    const point = asPoint(g.latitude, g.longitude);
-    if (!/^\d{1,12}$/.test(String(g.id)) || !point || !asText(g.name) || !asText(g.city))
-      throw new ProviderError("Invalid SHELTERLUV_GROUPS");
-    return { id: String(g.id), name: asText(g.name)!, city: asText(g.city)!, address: asText(g.address) || "", ...point };
-  });
+function rescueGroupsHeaders() {
+  const key = process.env.RESCUEGROUPS_API_KEY;
+  if (!key) throw new ProviderError("RescueGroups API key is not configured");
+  return { Authorization: key, "Content-Type": "application/vnd.api+json" };
 }
-function nearbyGroups(input: Near) {
-  const { radiusKm } = bounds(input);
-  return groups().filter((g) => distance(g, input) <= radiusKm);
+async function rescueGroups(path: string, input: Near, include?: string) {
+  const { latitude, longitude, radiusKm, limit } = bounds(input);
+  const url = new URL("https://api.rescuegroups.org/v5/public/" + path);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("sort", "distance");
+  if (include) url.searchParams.set("include", include);
+  return object(
+    await request(url, {
+      method: "POST",
+      headers: rescueGroupsHeaders(),
+      body: JSON.stringify({
+        data: {
+          filterRadius: { lat: latitude, lon: longitude, kilometers: radiusKm },
+        },
+      }),
+    }),
+  );
 }
-const feedCache = new Map<string, { until: number; promise: Promise<ReturnType<typeof rows>> }>();
-async function availableAnimals(group: Group, species?: Species) {
-  const key = `${group.id}:${species || "all"}`;
-  const cached = feedCache.get(key);
-  if (cached && cached.until > Date.now()) return cached.promise;
-  const url = new URL(`https://new.shelterluv.com/api/v3/available-animals/${group.id}`);
-  if (species === "dog" || species === "cat")
-    url.searchParams.set("animalType", species === "dog" ? "Dog" : "Cat");
-  const promise = request(url).then((data) => rows(object(data).animals));
-  feedCache.set(key, { until: Date.now() + 60000, promise });
-  promise.catch(() => feedCache.delete(key));
-  return promise;
+function related(
+  animal: JsonObject,
+  type: string,
+  included: Map<string, JsonObject>,
+) {
+  const relation = object(object(animal.relationships)[type]).data;
+  return (Array.isArray(relation) ? relation : relation ? [relation] : [])
+    .map(object)
+    .map((ref) => {
+      const item = included.get(String(ref.type) + "/" + ref.id);
+      return { id: String(ref.id), attributes: object(item?.attributes) };
+    });
 }
-export async function checkShelterluvRecord(id: string): Promise<"present" | "removed" | "unavailable"> {
-  const [groupId, animalId] = id.split(":");
-  if (!/^\d{1,12}$/.test(groupId || "") || !/^\d{1,16}$/.test(animalId || "")) return "unavailable";
-  const group = groups().find((g) => g.id === groupId);
-  if (!group) return "unavailable";
+function imageUrl(attribute: unknown) {
+  return typeof attribute === "string" ? attribute : object(attribute).url;
+}
+export async function checkRescueGroupsRecord(
+  id: string,
+): Promise<"present" | "removed" | "unavailable"> {
+  if (!/^\d{1,32}$/.test(id)) return "unavailable";
+  const url = new URL("https://api.rescuegroups.org/v5/public/animals/" + id);
+  url.searchParams.set("include", "statuses");
   try {
-    const animals = await availableAnimals(group);
-    return animals.some((animal) => String(animal.nid) === animalId) ? "present" : "removed";
-  } catch {
-    return "unavailable";
+    const body = object(await request(url, { headers: rescueGroupsHeaders() }));
+    const animals = Array.isArray(body.data)
+      ? rows(body.data)
+      : [object(body.data)];
+    if (
+      animals.length !== 1 ||
+      animals[0].type !== "animals" ||
+      String(animals[0].id) !== id
+    )
+      return "unavailable";
+    const relation = object(object(animals[0].relationships).statuses).data;
+    const refs = Array.isArray(relation) ? rows(relation) : [object(relation)];
+    if (refs.length !== 1 || refs[0].type !== "statuses" || !refs[0].id)
+      return "unavailable";
+    const matches = rows(body.included).filter(
+      (item) =>
+        item.type === "statuses" && String(item.id) === String(refs[0].id),
+    );
+    if (matches.length !== 1) return "unavailable";
+    const name = asText(object(matches[0].attributes).name)?.toLowerCase();
+    if (!name) return "unavailable";
+    // RescueGroups defines its available view as statuses.name == "Available".
+    return name === "available" ? "present" : "removed";
+  } catch (e) {
+    // RescueGroups documents a missing entity as 404 with an empty data object.
+    // A CDN error page or an empty search page provides no evidence of removal.
+    return e instanceof ProviderError && e.status === 404 && e.emptyData
+      ? "removed"
+      : "unavailable";
   }
 }
-export async function searchShelterAnimals(input: Near & { species?: Species }) {
+export async function searchShelterAnimals(
+  input: Near & { species?: Species },
+) {
   bounds(input);
-  return sourced<ExternalPetReport>("shelterluv", async () => {
+  return sourced<ExternalPetReport>("rescuegroups", async () => {
+    const view =
+      input.species === "cat" || input.species === "dog"
+        ? input.species + "s/"
+        : "";
+    const data = await rescueGroups(
+      "animals/search/available/" + view,
+      input,
+      "species,colors,pictures,locations,orgs",
+    );
+    const included = new Map(
+      rows(data.included ?? []).map((r) => [String(r.type) + "/" + r.id, r]),
+    );
     const reports: ExternalPetReport[] = [];
-    for (const group of nearbyGroups(input)) {
-      const animals = await availableAnimals(group, input.species);
-      for (const animal of animals) {
-        const animalId = String(animal.nid || "");
-        if (!/^\d{1,16}$/.test(animalId)) continue;
-        const kind = asText(animal.species)?.toLowerCase();
-        const species = kind === "dog" || kind === "cat" ? kind : kind ? "other" : undefined;
-        if (input.species && species !== input.species) continue;
-        const sourceRecordId = `${group.id}:${animalId}`;
-        const photoRows = Array.isArray(animal.photos)
-          ? animal.photos
-          : Object.values(object(animal.photos));
-        const photos = photoRows.map((p) => object(p).url);
-        const permitted = permittedPhotos(`shelterluv:${group.id}`, photos);
-        reports.push({
-          id: recordId("shelterluv", sourceRecordId),
-          source: "shelterluv",
-          sourceRecordId,
-          sourceUrl: publicUrl(animal.public_url, true) || `https://new.shelterluv.com/embed/${group.id}`,
-          reportType: "shelter_listing",
-          species,
-          breed: asText(animal.breed),
-          colors: [animal.primary_color, animal.secondary_color].flatMap((v) => asText(v) || []),
-          location: { latitude: group.latitude, longitude: group.longitude, confidence: "approximate" },
-          locationLabel: group.city,
-          processingPrincipal: `shelterluv:${group.id}`,
-          ...permitted,
-          ingestedAt: new Date().toISOString(),
-          status: "new",
-        });
-      }
+    for (const animal of rows(data.data)) {
+      const a = object(animal.attributes),
+        animalId = String(animal.id || "");
+      if (!/^\d+$/.test(animalId)) continue;
+      const spec = asText(
+        related(animal, "species", included)[0]?.attributes.singular,
+      )?.toLowerCase();
+      const species =
+        spec === "dog" || spec === "cat" ? spec : spec ? "other" : undefined;
+      if (input.species && species !== input.species) continue;
+      const org = related(animal, "orgs", included)[0],
+        loc =
+          related(animal, "locations", included)[0]?.attributes ??
+          org?.attributes ??
+          {};
+      const point = asPoint(loc.lat, loc.lon);
+      const sourceUrl = publicUrl(a.url) || publicUrl(org?.attributes.url);
+      const photos = related(animal, "pictures", included).map(
+        ({ attributes: p }) => imageUrl(p.large) || imageUrl(p.original),
+      );
+      if (!photos.length && a.pictureThumbnailUrl)
+        photos.push(a.pictureThumbnailUrl);
+      const permitted = permittedPhotos(
+        org ? "rescuegroups:" + org.id : "",
+        photos,
+      );
+      reports.push({
+        id: recordId("rescuegroups", animalId),
+        source: "rescuegroups",
+        sourceRecordId: animalId,
+        sourceUrl:
+          sourceUrl ||
+          "https://api.rescuegroups.org/v5/public/animals/" + animalId,
+        reportType: a.isFound === true ? "found" : "shelter_listing",
+        species,
+        breed: asText(a.breedString) || asText(a.breedPrimary),
+        colors: related(animal, "colors", included).flatMap(
+          ({ attributes: c }) => asText(c.name) || [],
+        ),
+        markings: asText(a.distinguishingMarks, 400),
+        location: point ? { ...point, confidence: "approximate" } : undefined,
+        locationLabel: asText(loc.citystate) || asText(loc.city),
+        processingPrincipal: org ? "rescuegroups:" + org.id : undefined,
+        ...permitted,
+        postedAt: asDate(a.createdDate),
+        observedAt: asDate(a.foundDate),
+        sourceUpdatedAt: asDate(a.updatedDate),
+        ingestedAt: new Date().toISOString(),
+        status: "new",
+      });
     }
-    return unique(reports).slice(0, bounds(input).limit);
+    return unique(reports);
   });
 }
 export function distance(a: Point, b: Point) {
@@ -195,15 +254,21 @@ async function osm(input: Near) {
   });
 }
 async function organizations(input: Near) {
-  return nearbyGroups(input).flatMap((g) => directoryRow(
-    "shelterluv-org-" + g.id,
-    `https://new.shelterluv.com/embed/${g.id}`,
-    g.name,
-    { latitude: g.latitude, longitude: g.longitude },
-    [g.address],
-    undefined,
-    undefined,
-  ));
+  const data = await rescueGroups("orgs/search/", input);
+  return rows(data.data).flatMap((row) => {
+    if (!/^\d+$/.test(String(row.id))) return [];
+    const a = object(row.attributes),
+      url = "https://api.rescuegroups.org/v5/public/orgs/" + row.id;
+    return directoryRow(
+      "rg-org-" + row.id,
+      url,
+      a.name,
+      asPoint(a.lat, a.lon),
+      [a.street, a.city, a.state, a.postalcode],
+      a.url,
+      a.phone,
+    );
+  });
 }
 function normalized(s = "") {
   return s
@@ -239,7 +304,7 @@ export async function findNearbyShelters(input: Near) {
   const { radiusKm, limit } = bounds(input);
   const results = await Promise.all([
     sourced("osm", () => osm(input)),
-    sourced("shelterluv", () => organizations(input)),
+    sourced("rescuegroups", () => organizations(input)),
   ]);
   const shelters: Shelter[] = [];
   for (const s of unique(results.flatMap((r) => r.items))) {

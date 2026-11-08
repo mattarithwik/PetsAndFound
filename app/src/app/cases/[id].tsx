@@ -38,10 +38,11 @@ export default function CaseScreen() {
     },
     `${id}:${shelterId}`,
     5000,
+    ['my_cases', 'my_available_cases', 'my_matches', 'my_report_photos', 'report_summaries'],
   );
   const shelters = useLive(
     async () => (closing === 'transfer' ? (await db.read<Shelter[]>(token!, 'shelters')).filter((s) => s.operatorVerified && s.id !== shelterId) : []),
-    `transfer:${closing}`,
+    `transfer:${closing}:${shelterId}`,
   );
 
   if (data.loading && data.data === undefined)
@@ -65,7 +66,7 @@ export default function CaseScreen() {
   const ours = !!shelterId && c.shelterId === shelterId;
   const queued = !c.shelterId && c.status === 'open';
   const closed = c.status === 'resolved' || c.status === 'cancelled';
-  const canManage = ours && !closed && (c.assigneeId === profile?.id || manager);
+  const canManage = verified && ours && !closed && (c.assigneeId === profile?.id || manager);
   const canAccept = verified && (queued || (ours && (c.status === 'open' || c.status === 'under_review')));
   const assigneeName = c.assigneeId ? (c.assigneeId === profile?.id ? 'You' : data.data?.staff.find((s) => s.userId === c.assigneeId)?.name || 'A teammate') : 'Unassigned';
   const colleagues = (data.data?.staff ?? []).filter((s) => s.userId !== profile?.id);
@@ -91,8 +92,7 @@ export default function CaseScreen() {
 
   const transferOptions = [...(shelters.data ?? [])]
     .map((s) => ({ s, d: where ? distanceKm(where, s) : 0 }))
-    .sort((a, b) => a.d - b.d)
-    .slice(0, 8);
+    .sort((a, b) => a.d - b.d);
 
   return (
     <Screen onRefresh={data.refresh}>
@@ -186,6 +186,7 @@ export default function CaseScreen() {
           {closing === 'transfer' ? (
             <>
               {shelters.loading ? <Loading label="Finding verified shelters…" /> : null}
+              <ErrorNote error={shelters.error} onRetry={shelters.refresh} />
               {shelters.data && !transferOptions.length ? <Muted>No other verified shelters are registered yet.</Muted> : null}
               <Chips value={target} onChange={setTarget} options={transferOptions.map(({ s, d }) => ({ value: s.id, label: where ? `${s.name} · ${km(d)}` : s.name }))} />
               <Muted>Transferring hands the case to that shelter's queue. Contact them first to confirm they can take it.</Muted>

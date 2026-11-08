@@ -1,7 +1,7 @@
 import { router, Stack, type Href } from 'expo-router';
 import { useState } from 'react';
 
-import { Button, Empty, ErrorNote, ListRow, Screen } from '@/components/ui';
+import { Button, Empty, ErrorNote, ListRow, Loading, Screen } from '@/components/ui';
 import type { IconName } from '@/components/ui';
 import { db, errorText } from '@/lib/api';
 import { notificationTitle, timeAgo } from '@/lib/format';
@@ -35,9 +35,10 @@ function detail(n: AppNotification) {
 }
 
 export default function Notifications() {
-  const { token, role, notifications, unread, refreshNotifications } = useSession();
+  const { token, role, notifications, notificationStatus, unread, refreshNotifications, setRole, setActiveShelter } = useSession();
   const [error, setError] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   const target = (n: AppNotification): Href | undefined => {
     const p = n.payload as Record<string, string | undefined>;
@@ -58,15 +59,27 @@ export default function Notifications() {
   };
 
   const open = async (n: AppNotification) => {
+    setError(undefined);
     await markRead(n);
-    refreshNotifications();
+    void refreshNotifications();
+    if (n.eventType === 'SHELTER_CAPACITY_CHANGED') {
+      if (typeof n.payload.shelterId === 'string') setActiveShelter(n.payload.shelterId);
+      if (role !== 'shelter') await setRole('shelter');
+    }
     const href = target(n);
     if (href) router.push(href);
   };
 
   const markAll = async () => {
-    await Promise.all(notifications.filter((n) => !n.readAt).map(markRead));
-    refreshNotifications();
+    if (marking) return;
+    setMarking(true);
+    setError(undefined);
+    try {
+      for (const item of notifications.filter((n) => !n.readAt)) await markRead(item);
+      await refreshNotifications();
+    } finally {
+      setMarking(false);
+    }
   };
 
   return (
@@ -79,8 +92,10 @@ export default function Notifications() {
       }}>
       <Stack.Screen options={{ title: 'Notifications' }} />
       <ErrorNote error={error} />
-      {unread ? <Button label="Mark all as read" variant="ghost" compact onPress={markAll} /> : null}
-      {!notifications.length ? <Empty icon="notifications-outline" title="You're all caught up" body="Match suggestions, case updates and weather alerts will appear here." /> : null}
+      {unread ? <Button label="Mark all as read" variant="ghost" compact loading={marking} onPress={markAll} /> : null}
+      {notificationStatus === 'loading' ? <Loading label="Loading notifications…" /> : null}
+      {notificationStatus === 'unavailable' ? <ErrorNote error="PawSafe couldn’t check for new notifications." onRetry={refreshNotifications} /> : null}
+      {!notifications.length && notificationStatus === 'ready' ? <Empty icon="notifications-outline" title="You're all caught up" body="Match suggestions, case updates and weather alerts will appear here." /> : null}
       {notifications.map((n) => (
         <ListRow
           key={n.id}

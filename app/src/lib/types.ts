@@ -1,6 +1,8 @@
+import type { DrillHazard } from '../../../services/agent/src/drills/rules';
+
+export type Hazard = DrillHazard;
 export type Role = 'owner' | 'shelter';
 export type Species = 'dog' | 'cat' | 'other';
-export type Hazard = 'tornado' | 'flood' | 'wildfire' | 'heat';
 export type Angle = 'front' | 'left' | 'right' | 'marking' | 'other';
 
 export type Profile = {
@@ -22,6 +24,7 @@ export type Pet = {
   age: string;
   size: string;
   microchip: string;
+  healthNotes?: string;
 };
 
 export type Photo = {
@@ -89,7 +92,7 @@ export type Sourced<T> = { items: T[]; sources: SourceStatus[] };
 
 export type ExternalReport = {
   id: string;
-  source: 'bluesky' | 'shelterluv' | 'dallas';
+  source: 'bluesky' | 'rescuegroups' | 'dallas';
   sourceUrl: string;
   reportType: 'lost' | 'found' | 'shelter_listing' | 'unknown';
   species?: Species;
@@ -98,6 +101,7 @@ export type ExternalReport = {
   locationLabel?: string;
   photoUrls: string[];
   postedAt?: string;
+  observedAt?: string;
   processingAllowed: boolean;
 };
 
@@ -161,8 +165,6 @@ export type MatchEvidence = {
   components?: Record<string, unknown>;
   model?: string;
   sourceUrl?: string;
-  candidatePhotoUrl?: string;
-  reviewRequired?: boolean;
 };
 
 export type Match = {
@@ -174,6 +176,7 @@ export type Match = {
   candidateType: 'report' | 'external';
   score: number;
   evidence: MatchEvidence;
+  handlingShelter?: Pick<Shelter, 'name' | 'phone' | 'website'>;
   status: 'pending' | 'confirmed' | 'rejected';
   updatedAt: string;
 };
@@ -220,22 +223,7 @@ export type DisasterRecord = {
   declarationDate?: string;
 };
 
-export type Guidance = { hazard: Hazard; items: string[]; sourceUrls: string[] };
-
-export type ScenarioSummary = { id: Hazard; title: string };
-
-export type SimulationState = {
-  id: string;
-  revision: number;
-  scenarioId: Hazard;
-  title: string;
-  source: string;
-  completed: boolean;
-  history: { label: string; feedback: string }[];
-  scene?: { id: string; title: string; choices: { id: string; label: string }[] };
-  metrics: { petSafety: number; preparedness: number; decisionQuality: number };
-  score: number;
-};
+export type Guidance = { hazard: DrillHazard; items: string[]; sourceUrls: string[] };
 
 export type PendingAction = {
   operation: 'create_lost_report' | 'create_found_report';

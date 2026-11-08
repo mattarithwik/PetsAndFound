@@ -2,6 +2,26 @@ import assert from "node:assert/strict";
 
 // Run against a fresh test module through scripts/verify-backend.mjs.
 export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId, finderId }) {
+  const pet = {
+    id: "domain-daisy", name: "Daisy", species: "dog", healthNotes: "Bring her medication",
+    photos: [{ id: "domain-portrait", storageKey: "pawsafe/" + ownerId + "/domain-portrait", angle: "front", animalCount: 1 }],
+  };
+  await assert.rejects(() => ownerDb.write("register_pet", { ...pet, photos: [...pet.photos, { id: "unfinished" }] }));
+  assert.equal(await ownerDb.read("pet", pet.id), null);
+  await ownerDb.write("register_pet", pet);
+  await ownerDb.write("register_pet", pet);
+  assert.equal((await ownerDb.read("pet_photos", pet.id)).length, 1);
+  await ownerDb.write("update_pet", { id: pet.id, age: "4 years" });
+  let updated = await ownerDb.read("pet", pet.id);
+  assert.equal(updated.healthNotes, pet.healthNotes);
+  assert.equal(updated.age, "4 years");
+  assert.equal(updated.name, pet.name);
+  assert.equal(await finderDb.read("pet", pet.id), null);
+  await assert.rejects(() => finderDb.write("update_pet", { id: pet.id, age: "5 years" }));
+  await ownerDb.write("update_pet", { id: pet.id, healthNotes: "" });
+  updated = await ownerDb.read("pet", pet.id);
+  assert.equal(updated.healthNotes, "");
+  assert.equal(updated.age, "4 years");
   const intake = {
     id: "domain-intake",
     idempotencyKey: "domain-submit",
@@ -19,6 +39,10 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   );
   assert.equal(nearby.length, 1);
   assert.notEqual(nearby[0].payload.latitude, intake.latitude);
+  const publicIntake = await ownerDb.read("public_report", intake.id);
+  assert.equal(publicIntake.latitude, nearby[0].payload.latitude);
+  assert.equal(publicIntake.description, undefined);
+  assert.equal(publicIntake.creatorId, undefined);
   await assert.rejects(() => finderDb.write("create_found_report", { ...intake, latitude: 33 }));
   await assert.rejects(() =>
     ownerDb.write("attach_pet_photo", {
@@ -48,11 +72,16 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
     longitude: -96.7,
   });
   const capacity = { shelterId, totalCapacity: 20, currentOccupancy: 10, acceptingAnimals: true };
+  const details = { shelterId, name: "Updated test rescue", address: "Rescue center", latitude: 32.9, longitude: -96.7 };
+  await assert.rejects(() => ownerDb.write("update_shelter_details", details));
   await assert.rejects(() => ownerDb.write("update_shelter_capacity", capacity));
   await ownerDb.write("request_shelter_verification", { shelterId, evidence: "Test request" });
   await assert.rejects(() => ownerDb.write("set_shelter_verification", { shelterId, status: "verified" }));
   await admin.write("set_shelter_verification", { shelterId, status: "verified" });
   await ownerDb.write("update_shelter_capacity", capacity);
+  await ownerDb.write("update_shelter_details", details);
+  await assert.rejects(() => finderDb.write("update_shelter_details", details));
+  assert.equal((await finderDb.read("shelter", shelterId)).name, details.name);
   assert.equal((await finderDb.read("shelter", shelterId)).currentOccupancy, 10);
   await assert.rejects(() => finderDb.write("assign_rescue_case", { shelterId, caseId: intake.id }));
   assert.ok((await ownerDb.read("case_queue")).some((c) => c.id === intake.id));
@@ -75,7 +104,7 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
     ...venue,
     id: "rg-org-22",
     sourceIds: ["rg-org-22"],
-    directorySources: ["https://new.shelterluv.com/embed/3451"],
+    directorySources: ["https://rescuegroups.org/22"],
   };
   await service.write("upsert_directory_shelter", rg);
   await service.write("upsert_directory_shelter", {
@@ -111,7 +140,7 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
     lostReportId: lost,
     candidateType: "external",
     candidateId: imported.id,
-    evidence: { model: "test" },
+    evidence: { model: "test", candidatePhotoId: "domain-external-photo" },
     score: 0.8,
     notify: true,
   };
@@ -119,6 +148,8 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   await service.write("propose_match", proposal);
   await service.write("propose_match", proposal);
   const match = (await ownerDb.read("matches")).find((m) => m.candidateId === imported.id);
+  assert.deepEqual((await ownerDb.read("matched_external_photo", "domain-external-photo")).photoUrls, imported.photoUrls);
+  assert.equal(await finderDb.read("matched_external_photo", "domain-external-photo"), null);
   await assert.rejects(() => finderDb.write("review_match", { matchId: match.id, status: "confirmed" }));
   await ownerDb.write("review_match", { matchId: match.id, status: "confirmed" });
   assert.equal(
@@ -128,6 +159,7 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
     1,
   );
   await service.write("remove_external_report", { id: imported.id });
+  assert.equal(await ownerDb.read("matched_external_photo", "domain-external-photo"), null);
   await service.write("upsert_external_report", imported);
   assert.ok(!(await service.read("service_external")).some((r) => r.id === imported.id));
   assert.ok(!(await ownerDb.read("matches")).some((m) => m.candidateId === imported.id));
@@ -135,25 +167,10 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   assert.deepEqual(purge.photoUrls, imported.photoUrls);
   await service.write("complete_matching_job", { id: purge.id, version: purge.version });
   assert.ok(!(await service.read("service_jobs")).some((j) => j.purgeExternalId === imported.id));
-  const unreviewed = {
-    ...imported,
-    id: "domain-shelterluv-unreviewed",
-    source: "shelterluv",
-    sourceRecordId: "3451:123",
-    reportType: "shelter_listing",
-  };
-  await service.write("upsert_external_report", unreviewed);
-  const unreviewedProposal = { ...proposal, candidateId: unreviewed.id, notify: false };
-  await assert.rejects(() => service.write("propose_match", unreviewedProposal));
-  await service.write("propose_match", {
-    ...unreviewedProposal,
-    evidence: { model: "test", reviewRequired: true },
-  });
-  assert.ok((await ownerDb.read("matches")).some((m) => m.candidateId === unreviewed.id));
   const listing = {
     ...imported,
     id: "domain-rg",
-    source: "shelterluv",
+    source: "rescuegroups",
     sourceRecordId: "1234",
     ingestedAt: "2020-01-01T00:00:00Z",
   };

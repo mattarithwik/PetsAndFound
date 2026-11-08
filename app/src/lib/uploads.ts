@@ -78,14 +78,19 @@ export async function uploadPhoto(token: string, image: PickedImage): Promise<Up
 }
 
 const urlCache = new Map<string, { url: string; expires: number }>();
+let cacheOwner: string | undefined;
 
 export async function photoUrl(token: string, photoId: string) {
+  if (token !== cacheOwner) {
+    urlCache.clear();
+    cacheOwner = token;
+  }
   const cached = urlCache.get(photoId);
   if (cached && cached.expires > Date.now()) return cached.url;
   const { url, expiresIn } = await agent.get<{ url: string; expiresIn: number }>(
     token,
     `/v1/photos/${encodeURIComponent(photoId)}/url`,
   );
-  urlCache.set(photoId, { url, expires: Date.now() + (expiresIn - 20) * 1000 });
+  if (cacheOwner === token) urlCache.set(photoId, { url, expires: Date.now() + (expiresIn - 20) * 1000 });
   return url;
 }

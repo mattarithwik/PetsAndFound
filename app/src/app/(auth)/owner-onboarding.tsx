@@ -1,15 +1,19 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
+import { Platform } from 'react-native';
 
 import { LocationPicker } from '@/components/location-picker';
-import { Button, ErrorNote, Field, Hero, Muted, Screen } from '@/components/ui';
+import { Button, Card, ErrorNote, Field, Hero, Muted, Screen } from '@/components/ui';
 import { useAction } from '@/lib/hooks';
+import type { Place } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
 
 export default function OwnerOnboarding() {
-  const { createAccount, saveProfile, token, profile } = useSession();
+  const { createAccount, profile } = useSession();
   const { place, setPlace } = usePlace();
+  const [choosingArea, setChoosingArea] = useState(false);
+  const [selectedArea, setSelectedArea] = useState<Place>();
   const [name, setName] = useState(profile?.name ?? '');
   const [contact, setContact] = useState(profile?.contactPreferences ?? '');
   const [emergency, setEmergency] = useState(profile?.emergencyContact ?? '');
@@ -20,32 +24,44 @@ export default function OwnerOnboarding() {
       if (!name.trim()) throw new Error('Enter your name.');
       const input = {
         name,
-        generalLocation: place?.city ?? place?.label,
+        generalLocation: selectedArea ? selectedArea.city : profile?.generalLocation,
         contactPreferences: contact,
         emergencyContact: emergency,
       };
-      if (token) await saveProfile(input);
-      else await createAccount('owner', input);
+      if (selectedArea) setPlace(selectedArea);
+      await createAccount('owner', input);
       router.replace('/pets/new?onboarding=1');
     });
 
+  if (profile && !busy) return <Redirect href="/" />;
   return (
     <Screen edges={['top']}>
-      <Hero title="Welcome to PawSafe" subtitle="Set up your owner profile. Your exact address and contact details are never shown publicly." />
-      <Field label="Your name" value={name} onChangeText={setName} placeholder="Jordan Lee" autoComplete="name" />
-      <LocationPicker label="Home area" value={place} onChange={setPlace} />
-      <Muted>We only store your general area (city) on your profile. It's used for nearby alerts and searches.</Muted>
+      <Hero title="Your owner profile" subtitle="Start with your name. You can add your home area and contacts now or later." />
+      <Field label="Your name" value={name} onChangeText={setName} placeholder="Jordan Lee" autoComplete="name" maxLength={120} />
+      <Card>
+        {choosingArea ? <>
+          <LocationPicker label="Home area (optional)" value={selectedArea ?? place} onChange={(next) => { setSelectedArea(next); setChoosingArea(false); }} />
+          <Button label="Skip location lookup" variant="ghost" compact onPress={() => setChoosingArea(false)} />
+        </> : <>
+          <Muted>{selectedArea ? selectedArea.city ? `Home city · ${selectedArea.city}` : 'Coordinates selected for local alerts.' : 'Home area is optional.'}</Muted>
+          <Button label={selectedArea ? 'Change home area' : 'Add a home area'} variant="outline" compact icon="location-outline" onPress={() => setChoosingArea(true)} />
+          {selectedArea ? <Button label="Remove selected area" compact variant="ghost" onPress={() => setSelectedArea(undefined)} /> : null}
+        </>}
+        <Muted>Only the city goes on your account. PawSafe saves the selected point on this device for nearby searches.</Muted>
+      </Card>
       <Field
-        label="How should responders reach you?"
+        label="Contact preference (optional)"
         value={contact}
         onChangeText={setContact}
         placeholder="In-app messages only, or text after 6pm"
-        hint="Optional and private. Shared only through authorized workflows."
+        hint="Private contact details for your account."
+        maxLength={240}
       />
-      <Field label="Emergency contact" value={emergency} onChangeText={setEmergency} placeholder="Name and phone" hint="Optional and private." />
+      <Field label="Emergency contact (optional)" value={emergency} onChangeText={setEmergency} placeholder="Name and phone" maxLength={240} />
       <ErrorNote error={error} />
+      {Platform.OS === 'web' ? <Muted>To sign in after closing this tab, save your account key from Profile → Account.</Muted> : null}
       <Button label="Continue" icon="arrow-forward" onPress={submit} loading={busy === 'save'} />
-      {!token ? <Button label="Back" variant="ghost" onPress={() => router.back()} /> : null}
+      <Button label="Back" variant="ghost" disabled={!!busy} onPress={() => router.canGoBack() ? router.back() : router.replace('/welcome')} />
     </Screen>
   );
 }

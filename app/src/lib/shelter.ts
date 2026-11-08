@@ -57,6 +57,7 @@ export function useShelterOps(intervalMs = 5000) {
     },
     `ops:${shelterId}:${verified}`,
     intervalMs,
+    ['my_cases', 'my_available_cases', 'my_matches', 'shelters', 'report_summaries'],
   );
 }
 

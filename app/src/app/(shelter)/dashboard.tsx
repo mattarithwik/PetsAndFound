@@ -39,6 +39,8 @@ export default function Dashboard() {
   const ours = (ops.data?.ours ?? []).filter((c) => (activeStatuses as readonly string[]).includes(c.status));
   const queue = [...(ops.data?.queue ?? [])].sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);
   const urgent = [...ours, ...queue].filter((c) => c.priority !== 'normal').length;
+  const recent = [...(ops.data?.ours ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 3);
+  const unavailableWeather = alerts.data?.sources.some((s) => s.status === 'unavailable');
   const fresh = !!shelter?.capacityUpdatedAt && Date.now() - Date.parse(shelter.capacityUpdatedAt) < 24 * 3600000;
   const capacityKnown = verified && typeof shelter?.totalCapacity === 'number' && typeof shelter?.currentOccupancy === 'number';
   const pins = queue
@@ -85,7 +87,7 @@ export default function Dashboard() {
       )}
       {verified ? <Button label="Update capacity" icon="create-outline" variant="outline" compact onPress={() => router.push('/settings')} /> : null}
 
-      {verified ? (
+      {verified && ops.data ? (
         <>
           <View style={local.stats}>
             <Stat label="Incoming" value={queue.length} />
@@ -94,11 +96,14 @@ export default function Dashboard() {
           </View>
 
           <SectionTitle action={<Button label="All cases" compact variant="ghost" onPress={() => router.push('/cases')} />}>Incoming reports</SectionTitle>
-          {!queue.length ? <Empty icon="checkmark-done-outline" title="No unassigned cases" body="New found-animal reports appear here for any verified shelter to accept." /> : null}
+          {!queue.length ? <Empty icon="checkmark-done-outline" title="No unassigned cases" body="Incoming found animals and lost-pet follow-ups appear here." /> : null}
           {pins.length ? <PinMap pins={pins} center={shelter ?? undefined} onPress={(pin) => router.push(`/cases/${pin.id}`)} /> : null}
           {queue.slice(0, 4).map((c) => (
             <CaseCard key={c.id} item={c} onPress={() => router.push(`/cases/${c.id}`)} />
           ))}
+
+          <SectionTitle>Recent case activity</SectionTitle>
+          {recent.length ? recent.map((c) => <CaseCard key={c.id} item={c} onPress={() => router.push(`/cases/${c.id}`)} />) : <Muted>Your team's accepted and transferred cases appear here.</Muted>}
 
           <SectionTitle>Match requests</SectionTitle>
           {!ops.data?.matches.length ? <Muted>No possible matches waiting on your cases.</Muted> : null}
@@ -112,7 +117,9 @@ export default function Dashboard() {
         <>
           <SectionTitle action={<SourceTag kind="official" />}>Weather alerts at your location</SectionTitle>
           <ErrorNote error={alerts.error} onRetry={alerts.refresh} />
-          {alerts.data && !alerts.data.items.length ? <Muted>No active NWS warnings for your shelter's location.</Muted> : null}
+          {alerts.loading ? <Loading label="Checking NWS alerts…" /> : null}
+          {unavailableWeather ? <Notice tone="warning">NWS alerts are unavailable for this location. Check weather.gov for current conditions.</Notice> : null}
+          {alerts.data && !unavailableWeather && !alerts.data.items.length ? <Muted>No active NWS warnings for your shelter's location.</Muted> : null}
           {alerts.data?.items.map((a) => (
             <AlertCard key={a.alertId} alert={a} />
           ))}

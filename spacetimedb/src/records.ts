@@ -46,12 +46,9 @@ export const register_user = action((ctx, p) => {
   if (ctx.db.users.id.find(row.id)) ctx.db.users.id.update(row);
   else ctx.db.users.insert(row);
 });
-export const register_pet = action((ctx, p) => {
-  const actor = user(ctx);
+function petDetails(p: Input) {
   const age = typeof p.age === "number" ? String(num(p, "age", 0, 150)) : str(p, "age", 60, false);
-  const row = {
-    id: id(p),
-    ownerId: actor.id,
+  return {
     name: str(p, "name", 120),
     species: choice(p, "species", ["dog", "cat", "other"]),
     breed: str(p, "breed", 120, false),
@@ -61,10 +58,32 @@ export const register_pet = action((ctx, p) => {
     size: str(p, "size", 60, false),
     microchip: str(p, "microchip", 120, false),
   };
+}
+function setCareNotes(ctx: Ctx, petId: string, p: Input) {
+  if (p.healthNotes === undefined) return;
+  const text = str(p, "healthNotes", 1000, false);
+  const existing = ctx.db.petCareNotes.petId.find(petId);
+  if (existing && !text) ctx.db.petCareNotes.petId.delete(petId);
+  else if (existing) ctx.db.petCareNotes.petId.update({ petId, text });
+  else if (text) ctx.db.petCareNotes.insert({ petId, text });
+}
+export const register_pet = action((ctx, p) => {
+  const row = { id: id(p), ownerId: user(ctx).id, ...petDetails(p) };
   const old = ctx.db.pets.id.find(row.id);
-  if (old && JSON.stringify(old) === JSON.stringify(row)) return;
-  if (old) fail("Pet ID already used");
-  ctx.db.pets.insert(row);
+  if (old && Object.entries(row).some(([key, value]) => JSON.stringify(old[key as keyof typeof row]) !== JSON.stringify(value))) fail("Pet ID already used");
+  if (!old) {
+    ctx.db.pets.insert(row);
+    setCareNotes(ctx, row.id, p);
+  }
+  const photos = p.photos ?? [];
+  if (!Array.isArray(photos) || photos.length > 5) fail("At most five photos per submission");
+  for (const item of photos) addPetPhoto(ctx, { ...object(item), petId: row.id });
+});
+export const update_pet = action((ctx, p) => {
+  const old = ctx.db.pets.id.find(id(p));
+  if (!old || old.ownerId !== user(ctx).id) fail("Pet not found");
+  ctx.db.pets.id.update({ ...old, ...petDetails({ ...old, ...p }) });
+  setCareNotes(ctx, old.id, p);
 });
 function photo(ctx: Ctx, p: Input) {
   const ownerId = user(ctx).id;
@@ -81,7 +100,7 @@ function photo(ctx: Ctx, p: Input) {
     embeddingRef: "",
   };
 }
-export const attach_pet_photo = action((ctx, p) => {
+function addPetPhoto(ctx: Ctx, p: Input) {
   const pet = ctx.db.pets.id.find(id(p, "petId"));
   if (!pet || pet.ownerId !== user(ctx).id) fail("Pet not found");
   const row = { ...photo(ctx, p), petId: pet.id };
@@ -91,7 +110,8 @@ export const attach_pet_photo = action((ctx, p) => {
   ctx.db.petPhotos.insert(row);
   enqueue(ctx, "photo", row.id);
   for (const r of ctx.db.reports.petId.filter(pet.id)) if (r.status === "open") enqueue(ctx, "report", r.id);
-});
+}
+export const attach_pet_photo = action(addPetPhoto);
 function addReportPhoto(ctx: Ctx, p: Input, reportId: string) {
   const row = { ...photo(ctx, p), reportId };
   const old = ctx.db.reportPhotos.id.find(row.id);

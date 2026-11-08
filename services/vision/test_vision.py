@@ -92,10 +92,6 @@ class ServiceTest(unittest.TestCase):
         result = self.search("unconfirmed", "two")
         self.assertEqual(result["candidates"], [])
         self.assertEqual(result["reviewPhotoIds"], ["unconfirmed", "two"])
-        flagged = self.search("unconfirmed", "two", includeUnreviewed=True)
-        self.assertEqual(len(flagged["candidates"]), 1)
-        self.assertEqual(flagged["candidates"][0]["candidatePhotoId"], "unconfirmed")
-        self.assertEqual(flagged["reviewPhotoIds"], ["unconfirmed", "two"])
         compare = {"leftPhotoId": "ref", "rightPhotoId": "two"}
         self.assertIsNone(self.client.post("/v1/images/compare", json=compare).json()["visualSimilarity"])
         self.embed("unconfirmed", animalCount=1)

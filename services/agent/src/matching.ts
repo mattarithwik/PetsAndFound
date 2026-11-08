@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ApiError, setting, type Job, type Photo, type Report, type Store } from "./db.js";
-import { readImage, downloadUrl } from "./media.js";
+import { readImage, downloadUrl, externalPhotoId } from "./media.js";
+export { externalPhotoId } from "./media.js";
 import { eligibleExternalPhotos } from "./providers/index.js";
 
 type External = {
@@ -20,14 +20,6 @@ type External = {
   observedAt?: string;
   status: string;
 };
-export function externalPhotoId(reportId: string, url: string) {
-  return (
-    "ext-" +
-    createHash("sha256")
-      .update(reportId + "\0" + url)
-      .digest("hex")
-  );
-}
 export async function forgetExternalPhotos(row: { id: string; photoUrls: string[] }) {
   for (const url of new Set(row.photoUrls)) {
     const photoId = externalPhotoId(row.id, url);
@@ -52,7 +44,6 @@ type Found = {
   breed?: string;
   colors?: string[];
   sourceUrl?: string;
-  photoUrls?: Record<string, string>;
 };
 type Candidate = {
   petId: string;
@@ -74,7 +65,7 @@ export const vision: Inference = async <T>(path: string, input: object) => {
     },
     body: JSON.stringify(input),
   });
-  if (!response.ok) throw new ApiError(response.status === 422 ? 422 : 502, "Vision service failed (" + response.status + ")");
+  if (!response.ok) throw new ApiError(502, "Vision service failed (" + response.status + ")");
   return (await response.json()) as T;
 };
 async function embedPhoto(store: Store, photo: Photo, species?: string) {
@@ -122,7 +113,6 @@ async function native(store: Store, r: Report, coverage: Coverage): Promise<Foun
 }
 async function externalCandidate(r: External, coverage: Coverage): Promise<Found> {
   const ids: string[] = [];
-  const photoUrls: Record<string, string> = {};
   const approved = new Set(
     (process.env.EXTERNAL_IMAGE_HOSTS || "")
       .toLowerCase()
@@ -143,10 +133,8 @@ async function externalCandidate(r: External, coverage: Coverage): Promise<Found
           imageBase64,
         });
         ids.push(id);
-        photoUrls[id] = url;
-      } catch (error) {
-        // Invalid or multi-frame source files will not become valid on retry.
-        if (!(error instanceof ApiError && error.status === 422)) coverage.failures++;
+      } catch {
+        coverage.failures++;
       }
     }
   }
@@ -160,7 +148,6 @@ async function externalCandidate(r: External, coverage: Coverage): Promise<Found
     colors: r.colors,
     breed: r.breed,
     sourceUrl: r.sourceUrl,
-    photoUrls,
   };
 }
 function attributes(entity: { breed?: string; colors?: string[] }) {
@@ -191,9 +178,8 @@ async function scoreCandidates(
     if (!r.petId || (r.species && found.species && r.species !== found.species)) continue;
     const refs = await readyPhotos(store, r, coverage);
     if (!refs.some((p) => p.petId === r.petId)) continue;
-    const response = await infer<{ candidates: Candidate[]; model: string; reviewPhotoIds?: string[] }>("/v1/pets/search", {
+    const response = await infer<{ candidates: Candidate[]; model: string }>("/v1/pets/search", {
       candidatePhotoIds: found.photoIds,
-      includeUnreviewed: found.type === "external",
       species: found.species,
       latitude: found.latitude,
       longitude: found.longitude,
@@ -234,8 +220,6 @@ async function scoreCandidates(
         components: c.components,
         model: response.model,
         sourceUrl: found.sourceUrl,
-        candidatePhotoUrl: found.photoUrls?.[c.candidatePhotoId],
-        reviewRequired: response.reviewPhotoIds?.includes(c.candidatePhotoId) || false,
       };
       results.push({
         lostReportId: r.id,

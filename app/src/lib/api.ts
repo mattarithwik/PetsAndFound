@@ -11,12 +11,18 @@ export class ApiError extends Error {
 
 async function send(service: string, url: string, init: RequestInit) {
   let response: Response;
+  let raw: string;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), service === 'database' ? 15000 : 180000);
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, { ...init, signal: controller.signal });
+    raw = await response.text();
   } catch {
+    if (controller.signal.aborted) throw new ApiError(0, `The ${service} took too long to respond. Try again.`);
     throw new ApiError(0, `Can't reach the ${service}. Check your connection and that the service is running.`);
+  } finally {
+    clearTimeout(timer);
   }
-  const raw = await response.text();
   if (!response.ok) {
     let message = raw.trim();
     try {

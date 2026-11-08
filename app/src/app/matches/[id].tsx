@@ -1,6 +1,5 @@
-import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { RemotePhoto } from '@/components/photos';
 import { Badge, Button, Card, ErrorNote, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, SourceLink, SourceTag, Strong, Title } from '@/components/ui';
@@ -19,10 +18,10 @@ const componentLabels: Record<string, string> = {
 
 export default function MatchDetail() {
   const { id: raw } = useLocalSearchParams<{ id: string }>();
-  const id = decodeURIComponent(raw);
+  const id = raw;
   const { token, profile, access } = useSession();
   const { busy, error, run } = useAction();
-  const match = useLive(async () => (await db.read<Match[]>(token!, 'matches')).find((m) => m.id === id) ?? null, id, 8000);
+  const match = useLive(async () => (await db.read<Match[]>(token!, 'matches')).find((m) => m.id === id) ?? null, id, 8000, ['my_matches']);
 
   if (match.loading && match.data === undefined)
     return (
@@ -64,9 +63,7 @@ export default function MatchDetail() {
           <Muted>Registered pet</Muted>
         </View>
         <View style={local.side}>
-          {m.evidence.candidatePhotoUrl
-            ? <Image source={{ uri: m.evidence.candidatePhotoUrl }} style={local.photo} contentFit="cover" />
-            : <RemotePhoto photoId={m.evidence.candidatePhotoId} style={local.photo} />}
+          <RemotePhoto photoId={m.evidence.candidatePhotoId} style={local.photo} />
           <Muted>{m.candidateType === 'external' ? 'Public listing' : 'Found report'}</Muted>
         </View>
       </View>
@@ -84,7 +81,12 @@ export default function MatchDetail() {
       <Notice tone="warning" title="A score is not proof">
         Visual similarity can't confirm identity. Compare markings, collar and microchip, and meet in a safe public place or at a shelter before handing over an animal.
       </Notice>
-      {m.evidence.reviewRequired ? <Notice tone="warning">The listing photo may show more than one animal. Check which animal the suggestion refers to before confirming.</Notice> : null}
+      {m.handlingShelter ? <Card>
+        <Muted>Verified shelter handling this case</Muted>
+        <Strong>{m.handlingShelter.name}</Strong>
+        {m.handlingShelter.phone ? <Button label={'Call ' + m.handlingShelter.phone} icon="call-outline" variant="outline" onPress={() => Linking.openURL('tel:' + m.handlingShelter!.phone)} /> : null}
+        {m.handlingShelter.website && /^https?:\/\//i.test(m.handlingShelter.website) ? <SourceLink label="Shelter website" url={m.handlingShelter.website} /> : null}
+      </Card> : null}
 
       {canReview ? (
         <>
@@ -105,5 +107,5 @@ export default function MatchDetail() {
 const local = StyleSheet.create({
   pair: { flexDirection: 'row', gap: 12 },
   side: { flex: 1, gap: 6, alignItems: 'center' },
-  photo: { width: '100%', aspectRatio: 1, borderRadius: 14 },
+  photo: { width: '100%' },
 });

@@ -4,11 +4,10 @@
     "slug": "pawsafe",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/app-icon.png",
     "scheme": "pawsafe",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "PawSafe uses your location to find nearby lost pets, shelters and official weather alerts.",
         "NSCameraUsageDescription": "PawSafe uses the camera to photograph pets for registration and lost or found reports.",
@@ -18,16 +17,14 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#AED9FF",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"]
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/logo.png"
+      "favicon": "./assets/app-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -53,7 +50,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#4099E6",
+          "backgroundColor": "#AED9FF",
           "image": "./assets/logo.png",
           "imageWidth": 120
         }

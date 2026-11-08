@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -7,14 +7,8 @@ import { Button, colors } from '@/components/ui';
 import { useSession } from '@/lib/session';
 
 export default function Index() {
-  const { ready, token, profile, role, online, refresh, signOut } = useSession();
+  const { token, profile, role, online, refresh, signOut } = useSession();
   const [retrying, setRetrying] = useState(false);
-  if (!ready)
-    return (
-      <View style={local.splash}>
-        <Image source={require('@/assets/logo.png')} style={local.logo} contentFit="contain" />
-      </View>
-    );
   if (!token) return <Redirect href="/welcome" />;
   if (!profile && !online)
     return (
@@ -32,6 +26,7 @@ export default function Index() {
           }}
         />
         <Button label="Sign out" variant="ghost" onPress={signOut} />
+        <Button label="Try a practice drill" variant="outline" icon="game-controller-outline" onPress={() => router.push('/practice')} />
       </View>
     );
   if (!profile) return <Redirect href={role === 'shelter' ? '/shelter-onboarding' : '/owner-onboarding'} />;

@@ -84,10 +84,15 @@ export async function ingestShelters(store: Store, input: z.infer<typeof near>) 
 export async function ingestAnimals(
   store: Store,
   input: z.infer<typeof near> & { species?: "dog" | "cat" | "other" },
+  since?: string,
 ) {
-  const result = await providers.searchShelterAnimals(input);
-  for (const r of result.items) await store.write("upsert_external_report", r);
-  return result;
+  const sources = [providers.searchShelterAnimals(input)];
+  if (Math.abs(input.latitude - 32.78) < 0.6 && Math.abs(input.longitude + 96.8) < 0.65)
+    sources.push(providers.searchDallas({ species: input.species, limit: input.limit, since }));
+  const results = await Promise.all(sources);
+  const items = results.flatMap((result) => result.items);
+  for (const item of items) await store.write("upsert_external_report", item);
+  return { items, sources: results.flatMap((result) => result.sources) };
 }
 export async function officialAlerts(actor: Actor, location: z.infer<typeof point>) {
   const result = await providers.getWeatherAlerts(location);

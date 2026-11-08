@@ -9,7 +9,7 @@ import { photoUrl, pickImage, type PickedImage } from '@/lib/uploads';
 import { colors } from './ui';
 
 /** Displays a private photo through a short-lived signed URL scoped to the viewer's permissions. */
-export function RemotePhoto({ photoId, style }: { photoId?: string; style?: StyleProp<ViewStyle> }) {
+export function RemotePhoto({ photoId, style, fit = 'cover' }: { photoId?: string; style?: StyleProp<ViewStyle>; fit?: 'cover' | 'contain' }) {
   const token = useToken();
   const [url, setUrl] = useState<string>();
   const [failed, setFailed] = useState(false);
@@ -27,8 +27,8 @@ export function RemotePhoto({ photoId, style }: { photoId?: string; style?: Styl
   }, [token, photoId]);
   return (
     <View style={[local.photo, style]}>
-      {url ? (
-        <Image source={{ uri: url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setFailed(true)} />
+      {url && !failed ? (
+        <Image source={{ uri: url }} style={StyleSheet.absoluteFill} contentFit={fit} transition={150} onError={() => setFailed(true)} />
       ) : (
         <Ionicons name={failed || !photoId ? 'image-outline' : 'hourglass-outline'} size={26} color={colors.baby} />
       )}
