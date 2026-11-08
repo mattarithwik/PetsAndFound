@@ -172,7 +172,7 @@ export default function FoundReport() {
       {guidance}
       <SectionTitle>Photos</SectionTitle>
       <Button label={cameraOpen ? 'Close scene assist' : 'Open scene assist'} variant="outline" icon="camera-outline" onPress={() => setCameraOpen(!cameraOpen)} />
-      {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => { setImage(0, image); setCameraOpen(false); }} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty } })} /> : null}
+      {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => setImage(0, image)} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty } })} /> : null}
       <Muted>Add up to three photos of the animal and its markings. You can report an injured or endangered animal without a photo.</Muted>
       <Row style={{ flexWrap: 'nowrap' }}>
         {[0, 1, 2].map((i) => (
