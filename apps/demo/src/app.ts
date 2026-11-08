@@ -41,6 +41,13 @@
   const mobileChatMessages = element<HTMLDivElement>("mobile-chat-messages");
   const mobileChatStatus = element<HTMLParagraphElement>("mobile-chat-status");
   const mobileChatCamera = element<HTMLButtonElement>("mobile-chat-camera");
+  const gameSituationStep = element<HTMLElement>("game-situation-step");
+  const gameAnimalStep = element<HTMLElement>("game-animal-step");
+  const gameStory = element<HTMLElement>("game-story");
+  const gameStoryText = element<HTMLParagraphElement>("game-story-text");
+  const gameChoiceOptions = element<HTMLDivElement>("game-choice-options");
+  const gameFeedback = element<HTMLParagraphElement>("game-feedback");
+  const gameRestart = element<HTMLButtonElement>("game-restart");
   const reportForm = element<HTMLFormElement>("report-form");
   const reportCameraButton = element<HTMLButtonElement>("report-camera-button");
   const reportCameraInput = element<HTMLInputElement>("report-camera-input");
@@ -55,6 +62,80 @@
   let uploadedPhoto: Photo | undefined;
   let pendingPet: { id: string; name: string; species: string } | undefined;
   let lastAttempt: { fingerprint: string; payload: object } | undefined;
+  let gameSituation = "";
+  let gameAnimal = "";
+  let gameScene = 0;
+  const gameScenes = [
+    {
+      prompt: () => `A ${gameSituation} is unfolding and you spot a ${gameAnimal} nearby. What is your first move?`,
+      choices: [
+        ["Move to safety and keep the animal calm", "Good call. Protect yourself first, then guide the animal away from danger."],
+        ["Run toward the danger alone", "Pause and get to safety. A calm rescuer can help more effectively."],
+      ],
+    },
+    {
+      prompt: () => `The ${gameAnimal} is safer, but help is still needed. What do you do next?`,
+      choices: [
+        ["Call for help and share the location", "Exactly. Contact responders and share clear details about the animal and hazards."],
+        ["Leave without telling anyone", "Someone may still need help. Notify responders before you go if it is safe."],
+      ],
+    },
+  ];
+  const renderGameChoices = (choices: string[][]) => {
+    gameChoiceOptions.replaceChildren();
+    choices.forEach(([label, feedback]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        gameFeedback.textContent = feedback;
+        gameChoiceOptions.querySelectorAll("button").forEach((choice) => {
+          (choice as HTMLButtonElement).disabled = true;
+        });
+        if (gameScene < gameScenes.length - 1) {
+          gameScene += 1;
+          window.setTimeout(() => {
+            gameFeedback.textContent = "";
+            gameStoryText.textContent = gameScenes[gameScene].prompt();
+            renderGameChoices(gameScenes[gameScene].choices);
+            element("game-progress").textContent = `Scene ${gameScene + 1} of ${gameScenes.length}`;
+          }, 700);
+        } else {
+          gameFeedback.textContent += " Story complete!";
+          gameRestart.hidden = false;
+        }
+      });
+      gameChoiceOptions.append(button);
+    });
+  };
+  document.querySelectorAll<HTMLButtonElement>("[data-game-group='situation'] button").forEach((button) => {
+    button.addEventListener("click", () => {
+      gameSituation = button.dataset.gameValue || "";
+      gameSituationStep.hidden = true;
+      gameAnimalStep.hidden = false;
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-game-group='animal'] button").forEach((button) => {
+    button.addEventListener("click", () => {
+      gameAnimal = button.dataset.gameValue || "";
+      gameAnimalStep.hidden = true;
+      gameStory.hidden = false;
+      gameScene = 0;
+      gameStoryText.textContent = gameScenes[0].prompt();
+      element("game-progress").textContent = "Scene 1 of 2";
+      gameRestart.hidden = true;
+      renderGameChoices(gameScenes[0].choices);
+    });
+  });
+  gameRestart.addEventListener("click", () => {
+    gameSituation = "";
+    gameAnimal = "";
+    gameScene = 0;
+    gameSituationStep.hidden = false;
+    gameAnimalStep.hidden = true;
+    gameStory.hidden = true;
+    gameFeedback.textContent = "";
+  });
 
   roleButtons.forEach((button) => {
     button.addEventListener("click", () => {

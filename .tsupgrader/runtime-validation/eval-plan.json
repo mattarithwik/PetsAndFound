@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-11-08T01:40:00Z",
+  "generatedOnPlatform": "win32",
+  "projectType": "server",
+  "setup": [
+    {
+      "command": "npm",
+      "args": [
+        "ci"
+      ],
+      "timeoutSeconds": 600
+    }
+  ],
+  "assertions": [
+    {
+      "name": "demo-typescript-build",
+      "kind": "process",
+      "command": "node",
+      "args": [
+        "services/agent/node_modules/typescript/bin/tsc",
+        "-p",
+        "apps/demo"
+      ],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "demo-server-serves-home",
+      "kind": "http-probe",
+      "startCommand": "npm",
+      "startArgs": [
+        "run",
+        "demo"
+      ],
+      "url": "http://127.0.0.1:4173/",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    },
+    {
+      "name": "agent-tests-pass",
+      "kind": "process",
+      "command": "npm",
+      "args": [
+        "test"
+      ],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 180
+    }
+  ]
+}

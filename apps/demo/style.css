@@ -146,6 +146,9 @@ body { margin: 0; }
 .home-tiles strong { font-family: "Calistoga", serif; font-size: 18px; font-weight: 400; line-height: 1.15; }
 .home-tiles small { color: #526b82; font-size: 11px; }
 .home-content h2 { margin: 2px 0 -3px; font-family: "Calistoga", serif; font-size: 21px; font-weight: 400; text-align: center; }
+.game-view { overflow: auto; background: #f7fbff; color: #111; }
+.game-header { padding: 24px 20px 20px; background: #4099e6; color: #fff; }.game-header p { margin: 0; font-size: 12px; font-weight: 800; }.game-header h1 { margin: 4px 0 0; font-family: "Calistoga", serif; font-size: 30px; font-weight: 400; }
+.game-content { padding: 18px; }.game-step h2 { margin: 0 0 12px; font-size: 18px; }.game-options { display: grid; gap: 8px; }.game-options button { padding: 11px 12px; border: 1px solid #aed9ff; border-radius: 12px; background: #fff; color: #12324b; text-align: left; }.game-options button:hover, .game-options button:focus-visible { background: #e8f5ff; }.game-story { padding: 14px; border-radius: 16px; background: #fff; box-shadow: 0 4px 10px rgb(0 61 120 / 10%); }.game-progress { margin: 0 0 8px; color: #0064bc; font-size: 11px; font-weight: 800; }.game-story > p:not(.game-progress):not(.game-feedback) { margin: 0 0 14px; font-size: 16px; font-weight: 700; line-height: 1.4; }.game-feedback { min-height: 34px; margin: 12px 0 0; color: #0064bc; font-size: 12px; line-height: 1.35; }.game-restart { width: 100%; margin-top: 8px; padding: 10px; border-radius: 11px; background: #4099e6; color: #fff; }
 .match-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .match-gallery button { display: grid; gap: 3px; min-width: 0; padding: 8px; border: 1px solid #d5eaff; border-radius: 14px; background: #fff; color: #111; text-align: center; }
 .gallery-pet { display: grid; height: 58px; place-items: center; border-radius: 10px; background: #aed9ff; font-size: 29px; }

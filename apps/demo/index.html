@@ -135,6 +135,41 @@
             <div id="saved-reports-list"><p class="saved-reports-empty">Your captured reports will appear here.</p></div>
           </section>
         </section>
+        <section class="mobile-view game-view" data-view="game" hidden>
+          <div class="game-header">
+            <p>Safety story</p>
+            <h1>Ready, pet hero?</h1>
+          </div>
+          <main class="game-content">
+            <section class="game-step" id="game-situation-step">
+              <h2>Choose a situation</h2>
+              <div class="game-options" data-game-group="situation">
+                <button type="button" data-game-value="hurricane/flooding">Hurricane / flooding</button>
+                <button type="button" data-game-value="tornado">Tornado</button>
+                <button type="button" data-game-value="wildfires">Wildfires</button>
+                <button type="button" data-game-value="winter storms">Winter storms</button>
+                <button type="button" data-game-value="earthquakes">Earthquakes</button>
+              </div>
+            </section>
+            <section class="game-step" id="game-animal-step" hidden>
+              <h2>Who needs help?</h2>
+              <div class="game-options" data-game-group="animal">
+                <button type="button" data-game-value="dog">Dog</button>
+                <button type="button" data-game-value="cat">Cat</button>
+                <button type="button" data-game-value="snake">Snake</button>
+                <button type="button" data-game-value="bird">Bird</button>
+                <button type="button" data-game-value="rabbit">Rabbit</button>
+              </div>
+            </section>
+            <section class="game-story" id="game-story" hidden>
+              <p class="game-progress" id="game-progress">Scene 1 of 2</p>
+              <p id="game-story-text"></p>
+              <div class="game-options" id="game-choice-options"></div>
+              <p class="game-feedback" id="game-feedback" role="status"></p>
+              <button class="game-restart" id="game-restart" type="button">Play another story</button>
+            </section>
+          </main>
+        </section>
         <section class="mobile-view profile-view" data-view="profile">
          <div class="profile-hero">
            <p class="profile-kicker">Tell us about your pet</p>
@@ -221,7 +256,7 @@
         </button>
         <nav class="mobile-nav" aria-label="App navigation">
           <button type="button" data-nav="home" aria-label="Home"><span class="rn-icon" aria-hidden="true">&#xe88a;</span></button>
-          <button type="button" data-nav="ai" aria-label="Game"><span class="rn-icon" aria-hidden="true">&#xe30f;</span></button>
+          <button type="button" data-nav="game" aria-label="Game"><span class="rn-icon" aria-hidden="true">&#xe30f;</span></button>
           <button type="button" data-nav="profile" aria-label="Pet profile"><span class="rn-icon" aria-hidden="true">&#xe853;</span></button>
           <button type="button" data-nav="settings" aria-label="Settings"><span class="rn-icon" aria-hidden="true">&#xe8b8;</span></button>
         </nav>
