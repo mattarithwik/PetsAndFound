@@ -127,8 +127,35 @@
       </div>
         </section>
         <section class="mobile-view settings-view" data-view="settings" hidden>
-          <h1>Settings</h1>
-          <button type="button">notifications</button>
+          <div class="settings-header">
+            <h1>Settings</h1>
+            <p>Keep PawSafe working the way you need.</p>
+          </div>
+          <div class="settings-content">
+            <section class="settings-card notification-card">
+              <div class="settings-card-heading">
+                <span class="settings-icon rn-icon" aria-hidden="true">&#xe7f4;</span>
+                <div><h2>Push notifications</h2><p>Choose what you want to hear about.</p></div>
+                <label class="switch"><input id="notifications-enabled" type="checkbox" checked><span></span></label>
+              </div>
+              <div class="notification-options">
+                <label><span><strong>Emergency alerts</strong><small>Severe weather and local disasters</small></span><input type="checkbox" checked></label>
+                <label><span><strong>Missing pet alerts</strong><small>New reports near your area</small></span><input type="checkbox" checked></label>
+                <label><span><strong>Location/geofence alerts</strong><small>When a pet enters or leaves a safe zone</small></span><input type="checkbox" checked></label>
+                <label><span><strong>Urgent health concerns</strong><small>Time-sensitive care reminders</small></span><input type="checkbox" checked></label>
+              </div>
+            </section>
+            <section class="settings-card">
+              <h2>Safety & privacy</h2>
+              <button class="settings-row" type="button"><span><strong>Safe zones</strong><small>Manage your location boundaries</small></span><b>›</b></button>
+              <button class="settings-row" type="button"><span><strong>Privacy controls</strong><small>Choose what PawSafe can share</small></span><b>›</b></button>
+            </section>
+            <section class="settings-card">
+              <h2>Account</h2>
+              <button class="settings-row" type="button"><span><strong>Help & support</strong><small>Get answers or contact us</small></span><b>›</b></button>
+              <button class="settings-row settings-danger" type="button"><span><strong>Sign out</strong><small>Return to the welcome screen</small></span><b>›</b></button>
+            </section>
+          </div>
         </section>
         <nav class="mobile-nav" aria-label="App navigation">
           <button type="button" data-nav="profile" aria-label="Home"><span class="rn-icon" aria-hidden="true">&#xe88a;</span></button>

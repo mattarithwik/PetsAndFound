@@ -113,6 +113,18 @@
     }
     petDetailsForm.querySelector(".save-pet-button")?.replaceChildren(document.createTextNode("Saved"));
   });
+  const notificationsEnabled = element<HTMLInputElement>("notifications-enabled");
+  const notificationInputs = document.querySelectorAll<HTMLInputElement>(".notification-options input");
+  notificationsEnabled.addEventListener("change", () => {
+    notificationInputs.forEach((notification) => {
+      notification.disabled = !notificationsEnabled.checked;
+      if (!notificationsEnabled.checked) notification.checked = false;
+    });
+  });
+  document.querySelector<HTMLButtonElement>(".settings-danger")?.addEventListener("click", () => {
+    appPhoneFrame.hidden = true;
+    authStage.hidden = false;
+  });
 
   document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) => {
     button.addEventListener("click", () => {
