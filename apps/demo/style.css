@@ -133,6 +133,35 @@ body { margin: 0; }
   font-family: "DM Sans", sans-serif;
 }
 .mobile-view { position: absolute; inset: 0 0 62px; overflow: auto; }
+.home-view { background: #fff; color: #111; }
+.home-header { display: grid; height: 100px; place-items: center; border-radius: 0 0 32px 32px; background: #4099e6; color: #fff; }
+.home-header h1 { margin: 0; font-family: "Calistoga", serif; font-size: 30px; font-weight: 400; text-align: center; }
+.home-content { display: grid; gap: 12px; padding: 16px 20px 76px; }
+.home-action-card, .home-tiles button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 8%);
+  text-align: left;
+}
+.home-action-card:hover, .home-tiles button:hover, .match-gallery button:hover { background: #f0f8ff; }
+.home-action-card strong { font-family: "Calistoga", serif; font-size: 24px; font-weight: 400; }
+.home-action-card small { color: #4f4f4f; font-size: 13px; line-height: 1.35; }
+.emergency-card { border: 2px solid #4099e6; }
+.home-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.home-tiles button { min-height: 84px; place-content: center; padding: 12px; background: #e8f5ff; text-align: center; }
+.home-tiles strong { font-family: "Calistoga", serif; font-size: 18px; font-weight: 400; line-height: 1.15; }
+.home-tiles small { color: #526b82; font-size: 11px; }
+.home-content h2 { margin: 2px 0 -3px; font-family: "Calistoga", serif; font-size: 21px; font-weight: 400; text-align: center; }
+.match-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.match-gallery button { display: grid; gap: 3px; min-width: 0; padding: 8px; border: 1px solid #d5eaff; border-radius: 14px; background: #fff; color: #111; text-align: center; }
+.gallery-pet { display: grid; height: 58px; place-items: center; border-radius: 10px; background: #aed9ff; font-size: 29px; }
+.match-gallery strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }.match-gallery small { color: #52718d; font-size: 10px; }
 .shelter-login-view { display: grid; place-items: center; padding: 24px; background: #4099e6; }
 .shelter-login-card {
   width: 100%;

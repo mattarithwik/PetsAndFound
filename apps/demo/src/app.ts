@@ -61,7 +61,7 @@
     appPhoneFrame.hidden = false;
     appPhoneFrame.classList.toggle("shelter-mode", selectedRole.dataset.role === "Shelter Member");
     document.querySelectorAll<HTMLElement>(".mobile-view").forEach((view) => {
-      view.hidden = view.dataset.view !== (selectedRole.dataset.role === "Shelter Member" ? "shelter-login" : "profile");
+      view.hidden = view.dataset.view !== (selectedRole.dataset.role === "Shelter Member" ? "shelter-login" : "home");
     });
     document.title = `PawSafe · ${selectedRole.dataset.role}`;
   });
