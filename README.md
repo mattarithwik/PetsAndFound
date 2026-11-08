@@ -2,6 +2,14 @@
 
 PawSafe helps people prepare for disasters and reunite lost pets with their families. Pet owners can register pets, file lost or found reports, explore nearby shelters, review possible photo matches, and practice emergency decisions. Shelter staff can coordinate cases and capacity. An AI assistant can search available sources and guide a user through these workflows; people review consequential actions and proposed matches.
 
+## Incident command expansion
+
+Verified shelter staff can open an incident around their shelter. Existing and incoming nearby found-animal cases appear on its command board, with an unattended 15-minute queue. Urgent cases notify nearby verified staff; the worker escalates unassigned cases. PawTricia prepares an evidence-backed response plan from the report, possible matches, official weather alerts, current capacity, and shelter supplies. Staff review the plan and explicitly accept or transfer the case. A shelter can register animals in care, publish food/crate/medical-kit counts, and message the reporter through the case. Confirmed matches also have a private reunification thread for the owner, finder and handling shelter. Pet profiles include gender, and new disaster drills include a fourth shelter-coordination decision.
+
+The found-animal form offers opt-in camera scene assist. It samples a frame every 15 seconds while enabled and uses `NVIDIA_VISION_MODEL` to describe visible surroundings. It does not diagnose an animal or dispatch responders. The reporter selects the condition used for urgency. On mobile, the Notifications screen can register an Expo push token and schedule seven rotating weekly preparation tips. Owners can opt in to official weather alerts for a chosen area from Prepare. Native push delivery needs an EAS project ID (`EXPO_PUBLIC_EAS_PROJECT_ID` in the app build), push credentials, and a development or production build; Android Expo Go does not support remote push notifications.
+
+For a repeatable surge demonstration, use a **disposable local SpacetimeDB database** with `SPACETIME_URI` set to a loopback URL, `SPACETIME_DATABASE` set to that database, `DEMO_REVIEWER_TOKEN` set to its publisher or reviewer, and `SPACETIME_SERVICE_TOKEN` set to a granted service identity. Build the agent and database module, then run `node scripts/seed-incident-demo.mjs --count=500` (up to 1,000). The script creates three verified **SIMULATED** shelters, 40 paired duplicate sightings, a critical injured animal, and 500–1,000 labeled reports. It saves local demo identities in `.demo-incident.json` with owner-only file permissions; keep that file private. Open Incident command as the Central shelter manager using the token in the manifest. Run `node scripts/seed-incident-demo.mjs --fill` to fill that shelter and show the stale plan and agent re-plan to another shelter. Run `node scripts/seed-incident-demo.mjs --review` to record the critical case's first staff review. The board refreshes every five seconds and shows median time to first review, urgent unassigned cases, and cases with no case update for 15 minutes. The last metric is based on real timestamps and rises after 15 minutes without an update; the script does not falsify case history. Run `node scripts/seed-incident-demo.mjs --cleanup` afterward. Cleanup closes reports and the incident and revokes demo shelter verification; use the disposable database to remove the remaining test records.
+
 This repository contains the Expo client, the authoritative SpacetimeDB module, a TypeScript API and background worker, and a Python image matching service. The [architecture plan](PLAN.md) describes the broader product design; this README describes the code currently in the repository.
 
 ## Architecture
@@ -59,7 +67,9 @@ npm ci --prefix app
 npm run app:web
 ```
 
-Expo prints the local web URL (normally `http://localhost:8081`). For a device or simulator, use `npm run app` instead. The client defaults to SpacetimeDB at port 3000 and the agent API at port 8080 on the development host; `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
+Expo prints the local web URL (normally `http://localhost:8081`). For a device or simulator, use `npm run app` instead. The client defaults to the `petlovers-mlcfo` database on SpacetimeDB Cloud and the agent API at port 8080 on the development host; `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
+
+The published cloud module is at `https://spacetimedb.com/@mattarithwik/petlovers-mlcfo`. The root `.env` selects `https://maincloud.spacetimedb.com` and `petlovers-mlcfo` for the locally run API and worker. Keep `SPACETIME_SERVICE_TOKEN` in that ignored file; it must belong to an identity granted the `service` role in this database. Run the API and worker with `node --env-file=.env` as shown below. The Expo client connects directly to cloud, while the agent API and vision service still need their own running endpoints.
 
 Select **Try a practice drill** on the welcome screen or open `/practice` to play without signing in. The device keeps the six most recent local drills. The owner's Simulation tab saves connected runs to the account and offers a Nemotron debrief on completion.
 
@@ -120,6 +130,8 @@ The Expo app lives in `app/`. From the repository root, run `npm run app` (or `n
 
 The Expo client calls SpacetimeDB reducers and read procedures over HTTP. Each reducer takes a JSON-encoded payload as its sole argument. The `api_read` procedure takes a resource and a key and returns JSON text. A single authenticated WebSocket subscribes to the user's views and public directory updates. Screens reload their authorized reads on changes, reconnect and foreground, with polling as a fallback.
 
+Users create a username and password during onboarding. The agent service's `POST /v1/auth/register` binds those credentials to their authenticated Spacetime identity; `POST /v1/auth/login` returns that identity's token after password verification. Passwords are hashed with scrypt by the service, and the private Spacetime credentials table is limited to the service identity. Existing account-key users can still sign in with their key and add credentials in Account. A selected owner or shelter view does not grant shelter permissions; verified staff membership and reviewer grants are checked by SpacetimeDB.
+
 1. Call `register_user` with `{name,generalLocation}`, then `register_pet` with a client-generated ID, name and species.
 2. Call `POST /v1/uploads/sign` with `{}`. Send the returned fields and image file as multipart form data to `uploadUrl`. On successful upload, call `attach_pet_photo` with `{id,petId,storageKey,angle,animalCount}`. Use the returned photo ID. Supply an animal count only when someone has checked the image. An authorized client can obtain a short-lived delivery URL from `GET /v1/photos/<photoId>/url`.
 3. Use the report reducers directly after confirmation, or use the agent flow below. The worker compares eligible images with open lost reports. The match includes the candidate and reference photo IDs, numerical evidence and review status. Owners and authorized staff can review the proposal.
@@ -140,13 +152,25 @@ Send the SpacetimeDB user token as `Authorization: Bearer <token>` on the Node A
 | `GET /v1/disasters/history` | Two-letter `state` and optional `incidentType` and ISO `since`. |
 | `GET /v1/scenarios` | Six fictional drills with deterministic, branching decisions. |
 | `POST /v1/simulations` | Use `{id,scenarioId,animal?}` with a client-generated UUID. Scenarios are `tornado`, `wildfire`, `winter_storm`, `earthquake`, `flood` and `heat`. Companions are `dog` (default), `cat`, `snake`, `bird` and `rabbit`. |
-| `GET /v1/simulations/<id>` | Current scene, companion, choices, revision, decision count and scores. New runs have three decisions. Earlier two-decision runs retain their scores. |
+| `GET /v1/simulations/<id>` | Current scene, companion, choices, revision, decision count and scores. New runs have four decisions. Earlier two- and three-decision runs retain their scores. |
 | `POST /v1/simulations/<id>/choices` | `{choiceId,revision}` from the current scene. |
 | `POST /v1/simulations/<id>/feedback` | `{}` for a completed run. Nemotron explains the predefined outcomes. |
+| `POST /v1/response/plan` | `{caseId}` for a case visible to the caller. Queues a PawTricia operations run and returns `{caseId,status:"queued"}`. |
+| `POST /v1/scene/assess` | `{imageBase64,condition}`. Uses the configured vision model to describe one camera frame without changing reporter urgency. |
 
 ### Matching and source permissions
 
 Public posts and shelter listings retain source links. External image processing requires both an approved rights holder in `EXTERNAL_IMAGE_RIGHTSHOLDERS` (for example `rescuegroups:123`) and an exact HTTPS CDN hostname in `EXTERNAL_IMAGE_HOSTS`. New source matches and animal identities require human review. The worker records possible matches by default. Set `MATCH_NOTIFY_THRESHOLD` after evaluating labeled photo pairs to enable score-triggered owner notifications.
+
+### PawTricia operations
+
+Every new found report queues an operations run, including ordinary cases outside an incident. Shelter capacity updates, intake, discharge, verification changes and supply updates requeue open found cases within 50 km, cases assigned to that shelter, and cases whose existing plan suggests that shelter. Report and camera-assessment updates also requeue the case. The worker backfills existing found cases on startup and polls the durable queue every five seconds between operation batches, independently of ingestion and matching jobs.
+
+Nemotron requests `inspect_case`, `check_matches`, `find_shelter_capacity` and `check_weather`. These execute the existing visual matcher, verified shelter capacity/resource checks, and NWS provider. `save_recommendation` validates a structured result containing urgency, a possible match, a suggested destination, reasons, missing information and the next action. Match and destination IDs must come from tool evidence. Destinations require capacity and supplies updated within 24 hours and must be within 50 km. Staff confirm intake and transport.
+
+Each run saves tool results and timestamps as checks complete. The case screen displays the recommendation, source failures, recorded tool steps and the ten most recent runs. `case_operations` is scoped to the reporter, assigned shelter staff, or verified staff viewing an open unassigned case; private report notes are hidden from unassigned staff. Existing response-plan review actions remain available.
+
+If Nemotron is unavailable or returns only prose, required tools still execute and the worker records a recommendation from their evidence with a `degraded` status. Failed sources are recorded as missing information. Database or case-read failures retry with backoff; expired worker leases can be reclaimed. Events increment a case's queue version, so an older run is retained as `superseded` and cannot publish over newer capacity or report evidence. Run the agent worker alongside the API; configure `NVIDIA_API_KEY`, `NVIDIA_MODEL`, and the existing vision and database settings for full execution.
 
 ### Verification
 

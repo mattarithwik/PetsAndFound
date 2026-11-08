@@ -5,6 +5,7 @@ import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, type IconName } from '@/components/ui';
+import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 
 function tabIcon(name: IconName) {
@@ -22,6 +23,7 @@ export default function ShelterLayout() {
   if (!token || !profile || role !== 'shelter') return <Redirect href="/" />;
   return (
     <Tabs
+      screenListeners={{ tabPress: () => feedback('selection') }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.navy,
@@ -31,6 +33,7 @@ export default function ShelterLayout() {
       }}>
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard', tabBarIcon: tabIcon('grid-outline') }} />
       <Tabs.Screen name="cases" options={{ title: 'Cases', tabBarIcon: tabIcon('file-tray-full-outline') }} />
+      <Tabs.Screen name="command" options={{ title: 'Command', tabBarIcon: tabIcon('map-outline') }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: tabIcon('settings-outline') }} />
     </Tabs>
   );

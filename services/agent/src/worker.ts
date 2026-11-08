@@ -4,6 +4,9 @@ import { type Job, type Report, type Store, systemStore } from "./db.js";
 import { processJob } from "./matching.js";
 import * as providers from "./providers/index.js";
 import { ingestAnimals, ingestShelters, ingestSocial, species } from "./workflows.js";
+import { generateResponsePlan, type OperationJob } from "./response.js";
+import { deliverPush } from "./push.js";
+import { pollSubscribedAlerts } from "./alert-poll.js";
 
 export async function refreshSources(store: Store) {
   const imports =
@@ -58,6 +61,15 @@ export async function drain(store: Store, process = processJob, retries = new Ma
   }
   return { completed, pending: jobs.length - completed };
 }
+export async function drainOperations(store: Store, plan = generateResponsePlan) {
+  await store.write("ensure_operation_jobs", {});
+  const jobs = await store.read<OperationJob[]>("service_operation_jobs");
+  const results = await Promise.allSettled(jobs.slice(0, 4).map((job) =>
+    plan(store, job.caseId, undefined, undefined, undefined, job)));
+  for (const result of results) if (result.status === "rejected")
+    console.error("PawTricia run needs a retry:", result.reason instanceof Error ? result.reason.name : "error");
+  return results;
+}
 async function run() {
   const store = systemStore();
   let closing = false;
@@ -71,12 +83,43 @@ async function run() {
   if (!Number.isFinite(interval) || interval < 60000)
     throw new Error("INGEST_INTERVAL_MS must be at least 60000");
   let nextRefresh = 0;
+  let nextPush = 0;
+  let nextEscalation = 0;
+  let nextAlertPoll = 0;
+  let alertOffset = 0;
   const retries = new Map<string, Retry>();
+  // Keep operations responsive while ingestion or a large matching backlog is running.
+  const operations = (async () => {
+    while (!closing) {
+      try { await drainOperations(store); }
+      catch { console.error("Could not poll PawTricia's operations queue"); }
+      if (!closing) await delay(5000);
+    }
+  })();
   while (!closing) {
     try {
       await drain(store, processJob, retries);
     } catch {
       console.error("Could not poll the matching queue");
+    }
+    if (Date.now() >= nextPush) {
+      try {
+        await deliverPush(store);
+        nextPush = Date.now() + 15000;
+      } catch {
+        console.error("Push delivery unavailable; retrying later");
+        nextPush = Date.now() + 60000;
+      }
+    }
+    if (Date.now() >= nextEscalation) {
+      try { await store.write("escalate_unattended_cases", {}); }
+      catch { console.error("Could not escalate unattended cases"); }
+      nextEscalation = Date.now() + 60000;
+    }
+    if (Date.now() >= nextAlertPoll) {
+      try { alertOffset = await pollSubscribedAlerts(store, alertOffset); }
+      catch { console.error("Could not poll subscribed weather alerts"); }
+      nextAlertPoll = Date.now() + 60000;
     }
     if (Date.now() >= nextRefresh) {
       try {
@@ -88,6 +131,7 @@ async function run() {
     }
     if (!closing) await delay(5000);
   }
+  await operations;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   run().catch((e) => {

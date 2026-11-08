@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import Animated, { LinearTransition, ReduceMotion } from 'react-native-reanimated';
 
 import { AlertCard } from '@/components/cards';
 import { LocationPicker } from '@/components/location-picker';
 import { Body, Button, Card, Chips, Empty, ErrorNote, Loading, Muted, Notice, Screen, SectionTitle, SourceLink, SourceTag, Strong, colors } from '@/components/ui';
 import { agent, db } from '@/lib/api';
 import { dateTime } from '@/lib/format';
-import { useLive } from '@/lib/hooks';
+import { useAction, useLive } from '@/lib/hooks';
+import { feedback, MotionPressable } from '@/lib/motion';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
 import { readJson, storage, writeJson } from '@/lib/storage';
@@ -72,13 +74,13 @@ function Kit({ owner }: { owner: string }) {
   return <>
     <SectionTitle>Emergency kit</SectionTitle>
     <Muted>{done.length} of {kitItems.length} ready · saved {Platform.OS === 'web' ? 'in this browser tab' : 'on this device'}</Muted>
-    <View style={local.track}><View style={[local.progress, { width: `${done.length / kitItems.length * 100}%` }]} /></View>
+    <View style={local.track}><Animated.View layout={LinearTransition.duration(220).reduceMotion(ReduceMotion.System)} style={[local.progress, { width: `${done.length / kitItems.length * 100}%` }]} /></View>
     <ErrorNote error={error} />
     <Card>{kitItems.map((item, index) => (
-      <Pressable key={item} disabled={!ready} onPress={() => toggle(index)} style={local.check} accessibilityRole="checkbox" accessibilityState={{ checked: done.includes(index) }}>
+      <MotionPressable key={item} disabled={!ready} feedback="selection" onPress={() => toggle(index)} style={local.check} accessibilityRole="checkbox" accessibilityState={{ checked: done.includes(index) }}>
         <Ionicons name={done.includes(index) ? 'checkbox' : 'square-outline'} size={22} color={colors.navy} />
         <Body style={[{ flex: 1 }, done.includes(index) && local.checked]}>{item}</Body>
-      </Pressable>
+      </MotionPressable>
     ))}</Card>
   </>;
 }
@@ -90,6 +92,9 @@ export default function Prepare() {
   const [changePlace, setChangePlace] = useState(false);
   const [hazard, setHazard] = useState<Hazard>('tornado');
   const [petId, setPetId] = useState('');
+  const alertAction = useAction();
+  const alertLocation = useLive(() => db.read<{ latitude: number; longitude: number } | null>(token!, 'alert_location'), `alert-location:${profile?.id}`, 60000);
+  const subscribed = !!place && !!alertLocation.data && Math.abs(place.latitude - alertLocation.data.latitude) < 0.0001 && Math.abs(place.longitude - alertLocation.data.longitude) < 0.0001;
   const pets = useLive(() => db.read<Pet[]>(token!, 'pets'), `prep-pets:${profile?.id}`, 0, ['my_pets']);
   const pet = pets.data?.find((p) => p.id === petId) ?? pets.data?.[0];
   const alerts = useLive(async () => place ? agent.get<Sourced<WeatherAlert>>(token!,
@@ -121,6 +126,16 @@ export default function Prepare() {
             <Button label="Change" variant="ghost" compact onPress={() => setChangePlace(true)} />
           </View> : <LocationPicker label="Choose an area for weather alerts" value={place} onChange={(value) => { setPlace(value); setChangePlace(false); }} />}
         </Card>
+        {place ? <>
+          <Button label={subscribed ? 'Stop alerts for this area' : 'Get alerts for this area'} variant="outline" loading={alertAction.busy === 'alerts'} onPress={() => alertAction.run('alerts', async () => {
+            if (subscribed) await db.call(token!, 'remove_alert_location', {});
+            else await db.call(token!, 'set_alert_location', { latitude: place.latitude, longitude: place.longitude });
+            await alertLocation.refresh();
+            feedback('success');
+          })} />
+          <Muted>When enabled, PawSafe checks official warnings for this area and adds new alerts to your notifications.</Muted>
+          <ErrorNote error={alertAction.error ?? alertLocation.error} onRetry={alertLocation.refresh} />
+        </> : null}
         {place && alerts.loading && !alerts.data ? <Loading label="Checking the National Weather Service…" /> : null}
         <ErrorNote error={alerts.error} onRetry={alerts.refresh} />
         {nwsDown ? <Notice tone="warning" title="Warning feed unavailable">Check the National Weather Service directly for current warnings.</Notice> : null}

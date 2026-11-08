@@ -119,17 +119,17 @@ test("all simulated hazards branch and score locally; progress retries do not ad
   await assert.rejects(() => step(actor, id, { choiceId: "delay", revision: initial.revision }));
   assert.equal((await step(actor, id, { choiceId: "turn", revision: next.revision })).score, 100);
 });
-test("each companion can finish all three decisions and legacy runs keep their original ending", async () => {
+test("new drills coordinate a fourth response decision and legacy runs keep their original ending", async () => {
   for (const hazard of hazards) {
     for (const animal of ["dog", "cat", "snake", "bird", "rabbit"] as const) {
       const paths = (choices: string[]) => {
-        const current = play(hazard, choices, animal, 2);
+        const current = play(hazard, choices, animal, 3);
         assert.equal(current.animal, animal);
         if (current.completed) {
-          assert.equal(choices.length, 3);
-          assert.equal(current.history.length, 3);
+          assert.equal(choices.length, 4);
+          assert.equal(current.history.length, 4);
           assert.ok(current.score >= 0 && current.score <= 100);
-          assert.throws(() => play(hazard, [...choices, "extra"], animal, 2));
+          assert.throws(() => play(hazard, [...choices, "extra"], animal, 3));
           return;
         }
         for (const option of current.scene!.choices) paths([...choices, option.id]);
@@ -141,17 +141,18 @@ test("each companion can finish all three decisions and legacy runs keep their o
   const id = randomUUID();
   const initial = await startSimulation(actor, { id, scenarioId: "flood", animal: "bird" });
   assert.equal(initial.animal, "bird");
-  assert.equal(initial.totalDecisions, 3);
+  assert.equal(initial.totalDecisions, 4);
   assert.deepEqual(await startSimulation(actor, { id, scenarioId: "flood", animal: "bird" }), initial);
   await assert.rejects(() => startSimulation(actor, { id, scenarioId: "flood", animal: "cat" }));
   let run = initial;
-  for (const choiceId of ["leave", "turn", "call"]) {
+  for (const choiceId of ["leave", "turn", "call", "coordinate"]) {
     run = await step(actor, id, { choiceId, revision: run.revision });
   }
   assert.equal(run.completed, true);
   assert.equal(run.score, 100);
   assert.equal(run.animal, "bird");
   assert.equal(play("flood", ["leave", "turn"]).completed, true);
+  assert.equal(play("flood", ["leave", "turn", "call"], "dog", 2).completed, true);
 });
 
 test("matching limits evidence to enrolled photos and never assumes a notification threshold", async () => {

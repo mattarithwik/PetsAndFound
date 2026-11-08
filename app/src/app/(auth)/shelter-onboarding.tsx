@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform } from 'react-native';
 
 import { LocationPicker } from '@/components/location-picker';
 import { Body, Button, Card, Chips, Empty, ErrorNote, Field, Hero, ListRow, Muted, Notice, Screen, SectionTitle, Strong } from '@/components/ui';
@@ -20,6 +19,8 @@ export default function ShelterOnboarding() {
   const { createAccount, token, profile, access, refresh, setActiveShelter } = useSession();
   const { place, setPlace } = usePlace();
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [path, setPath] = useState<Path>('register');
   const [org, setOrg] = useState({ name: '', phone: '', website: '', evidence: '' });
   const [orgPlace, setOrgPlace] = useState<Place>();
@@ -41,8 +42,9 @@ export default function ShelterOnboarding() {
       <Screen edges={['top']}>
         <Hero title="ShelterDash" subtitle="Coordinate care and help animals get home safely. Start with your staff profile." />
         <Field label="Your name" value={name} onChangeText={setName} placeholder="Alex Rivera" autoComplete="name" />
+        <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} placeholder="alex" maxLength={32} />
+        <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" maxLength={128} />
         <LocationPicker label="Where you work" value={place} onChange={setPlace} />
-        {Platform.OS === 'web' ? <Muted>To sign in after closing this tab, save your account key from ShelterDash → Settings → Profile and account key.</Muted> : null}
         <ErrorNote error={error} />
         <Button
           label="Create staff account"
@@ -50,7 +52,7 @@ export default function ShelterOnboarding() {
           onPress={() =>
             run('account', async () => {
               if (!name.trim()) throw new Error('Enter your name.');
-              await createAccount('shelter', { name, generalLocation: place?.city });
+              await createAccount('shelter', { name, generalLocation: place?.city }, username, password);
             })
           }
         />

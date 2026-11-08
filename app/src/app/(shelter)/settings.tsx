@@ -8,6 +8,7 @@ import { db } from '@/lib/api';
 import { timeAgo, verificationLabel } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
 import type { Place } from '@/lib/location';
+import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
 import { useShelter, useShelterOps } from '@/lib/shelter';
@@ -97,6 +98,7 @@ function OrganizationEditor({ shelter, onSaved }: { shelter: Shelter; onSaved: (
     await db.call(token!, 'update_shelter_details', { shelterId: shelter.id, name: name.trim(), phone: phone.trim(), website: website.trim(), address: place.label, latitude: place.latitude, longitude: place.longitude });
     await onSaved();
     setEditing(false);
+    feedback('success');
   });
   return <Card>
     <Field label="Organization name" value={name} onChangeText={setName} maxLength={240} />
@@ -126,6 +128,7 @@ function Verification({ shelterId, status }: { shelterId: string; status: string
       await db.call(token!, 'request_shelter_verification', { shelterId, evidence: evidence.trim() });
       setEvidence('');
       await refresh();
+      feedback('success');
     });
   return (
     <>
@@ -169,6 +172,7 @@ function Capacity({ shelter, onSaved }: { shelter: Shelter; onSaved: () => Promi
       await db.call(token!, 'update_shelter_capacity', { shelterId: shelter.id, totalCapacity, currentOccupancy, acceptingAnimals: accepting });
       await onSaved();
       setSaved(true);
+      feedback('success');
     });
 
   return (
@@ -207,6 +211,7 @@ function Staff({ shelterId, manager }: { shelterId: string; manager: boolean }) 
       await db.call(token!, 'set_shelter_staff', { shelterId, userId: target.trim(), role: next });
       setUserId('');
       await staff.refresh();
+      feedback('success');
     });
 
   return (
@@ -281,6 +286,7 @@ function Reviews() {
     run(`${shelterId}:${status}`, async () => {
       await db.call(token!, 'set_shelter_verification', { shelterId, status });
       await queue.refresh();
+      feedback(status === 'verified' ? 'success' : 'warning');
     });
 
   return (

@@ -8,6 +8,7 @@ import { useDraft } from '@/lib/drafts';
 import { dateTime, hoursAgo, publicArea, sinceOptions } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
+import { feedback } from '@/lib/motion';
 import type { Place } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
@@ -80,6 +81,7 @@ export default function LostReport() {
         ...(draft.place!.city ? { generalLocation: draft.place!.city } : {}),
         ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
       });
+      feedback('success');
       const reportId = draft.reportId;
       await clear();
       // The worker also queues matching; this just returns early results sooner.
@@ -89,7 +91,7 @@ export default function LostReport() {
 
   if (draft.reviewing)
     return (
-      <Screen>
+      <Screen key="review">
         <Stack.Screen options={{ title: 'Report a lost pet' }} />
         <SectionTitle>Review before publishing</SectionTitle>
         <Card>
@@ -109,7 +111,7 @@ export default function LostReport() {
     );
 
   return (
-    <Screen>
+    <Screen key="form">
       <Stack.Screen options={{ title: 'Report a lost pet' }} />
       <Chips label="Which pet is missing?" value={draft.petId} onChange={(petId) => update({ petId })} options={(pets.data ?? []).map((p) => ({ value: p.id, label: p.name }))} />
       <Chips label="When were they last seen?" value={draft.since} onChange={(since) => update({ since })} options={sinceOptions} />

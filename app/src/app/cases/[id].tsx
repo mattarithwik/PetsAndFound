@@ -3,16 +3,19 @@ import { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { MatchCard } from '@/components/cards';
+import { CaseConversation } from '@/components/case-conversation';
+import { CaseOperationsPanel } from '@/components/case-operations';
 import { RemotePhoto } from '@/components/photos';
 import { PinMap } from '@/components/pin-map';
 import { Badge, Body, Button, Card, Chips, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, Title } from '@/components/ui';
-import { db } from '@/lib/api';
+import { agent, db } from '@/lib/api';
 import { capitalize, caseStatusLabel, conditions, dateTime, km, priorityTone, speciesLabel, timeAgo } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
 import { distanceKm } from '@/lib/location';
+import { shareText } from '@/lib/share';
 import { useSession } from '@/lib/session';
 import { useShelter } from '@/lib/shelter';
-import type { CaseDetail, Match, Shelter, StaffMember } from '@/lib/types';
+import type { CaseDetail, Match, ResponsePlan, Shelter, StaffMember } from '@/lib/types';
 
 type Closing = 'resolve' | 'cancel' | 'transfer';
 
@@ -44,6 +47,7 @@ export default function CaseScreen() {
     async () => (closing === 'transfer' ? (await db.read<Shelter[]>(token!, 'shelters')).filter((s) => s.operatorVerified && s.id !== shelterId) : []),
     `transfer:${closing}:${shelterId}`,
   );
+  const plan = useLive(() => db.read<ResponsePlan | null>(token!, 'response_plan', id), `plan:${id}`, 5000);
 
   if (data.loading && data.data === undefined)
     return (
@@ -127,6 +131,31 @@ export default function CaseScreen() {
         {report?.description ? <Body>{report.description}</Body> : null}
         {!report ? <Muted>Full report details and the exact location become visible once your shelter accepts this case.</Muted> : null}
       </Card>
+      {c.assessment ? <Card tone="info">
+        <SectionTitle>Camera observations</SectionTitle>
+        <Body>{c.assessment.environment}</Body>
+        {c.assessment.visibleConcerns.map((item, index) => <Muted key={index}>• {item}</Muted>)}
+        <Muted>{c.assessment.uncertainty}</Muted>
+        <Muted>Visual observations only. Verify the animal and conditions on site.</Muted>
+      </Card> : null}
+
+      <CaseOperationsPanel caseId={c.id} />
+      {verified ? <>
+        <SectionTitle>Response plan</SectionTitle>
+        {plan.data ? <Card tone="info">
+          <Badge label={plan.data.status} tone={plan.data.status === 'accepted' ? 'success' : 'warning'} />
+          <Body>{plan.data.reason}</Body>
+          {plan.data.suggestedShelterId ? <KeyValue label="Suggested shelter" value={plan.data.evidence.candidates.find((s) => s.id === plan.data?.suggestedShelterId)?.name ?? plan.data.suggestedShelterId} /> : null}
+          {plan.data.steps.map((step, index) => <Muted key={index}>{index + 1}. {step}</Muted>)}
+          <Muted>Generated {timeAgo(plan.data.generatedAt)}. Review the recorded tool results above.</Muted>
+          {plan.data.status === 'proposed' ? <View style={{ gap: 8 }}>
+            <Button label="Mark plan reviewed" variant="outline" onPress={() => run('review-plan', async () => { await db.call(token!, 'review_response_plan', { caseId: c.id, status: 'accepted' }); await plan.refresh(); })} loading={busy === 'review-plan'} />
+            <Button label="Decline plan" variant="ghost" onPress={() => run('decline-plan', async () => { await db.call(token!, 'review_response_plan', { caseId: c.id, status: 'declined' }); await plan.refresh(); })} loading={busy === 'decline-plan'} />
+          </View> : null}
+          <Muted>Staff must confirm availability and use the case actions below to assign or transfer.</Muted>
+        </Card> : <Muted>Planning has not completed for this case.</Muted>}
+        {!closed ? <Button label="Refresh response plan" variant="ghost" compact loading={busy === 'plan'} onPress={() => run('plan', async () => { await agent.post(token!, '/v1/response/plan', { caseId: c.id }); await plan.refresh(); })} /> : null}
+      </> : null}
 
       {where ? (
         <>
@@ -142,6 +171,15 @@ export default function CaseScreen() {
           ) : null}
         </>
       ) : null}
+      {verified && ours && report && c.priority !== 'normal' ? <Button
+        label="Share responder handoff"
+        icon="share-outline"
+        variant="outline"
+        loading={busy === 'handoff'}
+        onPress={() => run('handoff', async () => {
+          await shareText(`PawSafe case ${c.id}\nReported condition: ${c.reason}\nAnimal: ${report.species}\nObserved: ${report.observedAt}\nLocation: ${report.latitude}, ${report.longitude}\nStatus: ${c.status}\nVerify on site and coordinate through the assigned shelter.`);
+        })}
+      /> : null}
 
       {!verified ? <Notice tone="warning">Only verified shelter staff can act on cases.</Notice> : null}
 
@@ -220,6 +258,7 @@ export default function CaseScreen() {
       {data.data?.matches.map((m) => (
         <MatchCard key={m.id} match={m} />
       ))}
+      {c.shelterId ? <CaseConversation caseId={c.id} /> : null}
     </Screen>
   );
 }

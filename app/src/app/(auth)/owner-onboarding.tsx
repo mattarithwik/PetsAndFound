@@ -1,6 +1,5 @@
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Platform } from 'react-native';
 
 import { LocationPicker } from '@/components/location-picker';
 import { Button, Card, ErrorNote, Field, Hero, Muted, Screen } from '@/components/ui';
@@ -15,6 +14,8 @@ export default function OwnerOnboarding() {
   const [choosingArea, setChoosingArea] = useState(false);
   const [selectedArea, setSelectedArea] = useState<Place>();
   const [name, setName] = useState(profile?.name ?? '');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [contact, setContact] = useState(profile?.contactPreferences ?? '');
   const [emergency, setEmergency] = useState(profile?.emergencyContact ?? '');
   const { busy, error, run } = useAction();
@@ -29,7 +30,7 @@ export default function OwnerOnboarding() {
         emergencyContact: emergency,
       };
       if (selectedArea) setPlace(selectedArea);
-      await createAccount('owner', input);
+      await createAccount('owner', input, username, password);
       router.replace('/pets/new?onboarding=1');
     });
 
@@ -38,6 +39,8 @@ export default function OwnerOnboarding() {
     <Screen edges={['top']}>
       <Hero title="Your owner profile" subtitle="Start with your name. You can add your home area and contacts now or later." />
       <Field label="Your name" value={name} onChangeText={setName} placeholder="Jordan Lee" autoComplete="name" maxLength={120} />
+      <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} placeholder="jordan" maxLength={32} hint="At least 3 letters or numbers; dots, dashes and underscores are okay." />
+      <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" maxLength={128} />
       <Card>
         {choosingArea ? <>
           <LocationPicker label="Home area (optional)" value={selectedArea ?? place} onChange={(next) => { setSelectedArea(next); setChoosingArea(false); }} />
@@ -59,7 +62,6 @@ export default function OwnerOnboarding() {
       />
       <Field label="Emergency contact (optional)" value={emergency} onChangeText={setEmergency} placeholder="Name and phone" maxLength={240} />
       <ErrorNote error={error} />
-      {Platform.OS === 'web' ? <Muted>To sign in after closing this tab, save your account key from Profile → Account.</Muted> : null}
       <Button label="Continue" icon="arrow-forward" onPress={submit} loading={busy === 'save'} />
       <Button label="Back" variant="ghost" disabled={!!busy} onPress={() => router.canGoBack() ? router.back() : router.replace('/welcome')} />
     </Screen>

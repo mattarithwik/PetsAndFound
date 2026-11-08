@@ -18,6 +18,10 @@ import db, {
 } from "./tables";
 import { canReadReport, fail, isStaff, sender, service } from "./common";
 
+function verifiedMember(ctx: ReadCtx) {
+  return [...ctx.db.staff.userId.filter(sender(ctx))].some((r) => isStaff(ctx, r.shelterId));
+}
+
 export const my_profile = db.view(
   { name: "my_profile", public: true },
   t.option(users.rowType),
@@ -126,6 +130,10 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
       return actor;
     case "profile":
       return ctx.db.users.id.find(actor);
+    case "account_username":
+      return Array.from(ctx.db.credentials.identity.filter(actor))[0]?.username ?? "";
+    case "service_credentials":
+      return ctx.db.credentials.username.find(key.toLowerCase()) ?? null;
     case "pets":
       return Array.from(ctx.db.pets.ownerId.filter(actor));
     case "pet": {
@@ -170,6 +178,12 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
     case "report_photos": {
       const r = ctx.db.reports.id.find(key);
       return r && canReadReport(ctx, r) ? Array.from(ctx.db.reportPhotos.reportId.filter(key)) : [];
+    }
+    case "scene_assessment": {
+      const report = ctx.db.reports.id.find(key);
+      if (!report || !canReadReport(ctx, report)) return null;
+      const assessment = ctx.db.sceneAssessments.reportId.find(key);
+      return assessment ? { ...assessment, visibleConcerns: JSON.parse(assessment.visibleConcerns) } : null;
     }
     case "public_reports":
       return Array.from(ctx.db.reportSummaries.status.filter("open"));
@@ -225,6 +239,9 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         summary: ctx.db.reportSummaries.id.find(c.reportId) ?? null,
         report: readable ? r : null,
         photos: readable ? Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId)) : [],
+        assessment: readable && ctx.db.sceneAssessments.reportId.find(c.reportId)
+          ? { ...ctx.db.sceneAssessments.reportId.find(c.reportId)!, visibleConcerns: JSON.parse(ctx.db.sceneAssessments.reportId.find(c.reportId)!.visibleConcerns) }
+          : null,
       };
     }
     case "case_queue": {
@@ -234,6 +251,119 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         .filter((c) => c.status === "open")
         .map((c) => ({ id: c.id, priority: c.priority, report: ctx.db.reportSummaries.id.find(c.reportId) }));
     }
+    case "incidents":
+      if (!verifiedMember(ctx)) fail("Verified shelter staff required");
+      return Array.from(ctx.db.incidents.iter());
+    case "incident_board": {
+      if (!verifiedMember(ctx)) fail("Verified shelter staff required");
+      const incident = ctx.db.incidents.id.find(key);
+      if (!incident) return null;
+      const rows = Array.from(ctx.db.incidentCases.incidentId.filter(key)).flatMap((link) => {
+        const c = ctx.db.cases.id.find(link.caseId);
+        if (!c) return [];
+        const plan = ctx.db.responsePlans.caseId.find(c.id);
+        const report = ctx.db.reports.id.find(c.reportId);
+        return [{ id: c.id, reportId: c.reportId, shelterId: c.shelterId, priority: c.priority,
+          status: c.status, updatedAt: c.updatedAt, createdAt: report?.createdAt ?? c.updatedAt,
+          firstReviewedAt: ctx.db.caseFirstReviews.caseId.find(c.id)?.reviewedAt ?? "",
+          duplicateKey: report ? `${report.species}:${Math.round(report.latitude * 10000)}:${Math.round(report.longitude * 10000)}:${Math.floor(Date.parse(report.observedAt) / 900000)}` : "",
+          summary: ctx.db.reportSummaries.id.find(c.reportId) ?? null,
+          plan: plan ? { status: plan.status, suggestedShelterId: plan.suggestedShelterId, reason: plan.reason } : null }];
+      });
+      const firstByKey = new Map<string, string>();
+      const cases = rows.map(({ duplicateKey, ...row }) => {
+        const possibleDuplicateOf = duplicateKey ? firstByKey.get(duplicateKey) ?? "" : "";
+        if (duplicateKey && !possibleDuplicateOf) firstByKey.set(duplicateKey, row.id);
+        return { ...row, possibleDuplicateOf };
+      });
+      return { incident, cases };
+    }
+    case "case_operations": {
+      const c = ctx.db.cases.id.find(key);
+      if (!c || (c.creatorId !== actor && !isStaff(ctx, c.shelterId) &&
+        !(!c.shelterId && c.status === "open" && verifiedMember(ctx)))) return null;
+      const job = ctx.db.operationJobs.caseId.find(key);
+      const fullEvidence = c.creatorId === actor || isStaff(ctx, c.shelterId);
+      const runs = Array.from(ctx.db.operationRuns.caseId.filter(key))
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 10)
+        .map((r) => ({ ...r, status: r.status === "running" && job?.version !== r.version ? "superseded" : r.status,
+          steps: (JSON.parse(r.steps) as { tool: string; result: unknown }[]).map((step) =>
+            !fullEvidence && step.tool === "inspect_case" ? { ...step, result: { priority: c.priority, reportedCondition: c.reason } } : step),
+          recommendation: r.recommendation ? JSON.parse(r.recommendation) : null }));
+      return { job: job ? { status: job.status, trigger: job.trigger, requestedAt: job.requestedAt, retryAt: job.retryAt } : null, runs };
+    }
+    case "service_operation_job":
+      return ctx.db.operationJobs.caseId.find(key) ?? null;
+    case "service_operation_jobs":
+      return Array.from(ctx.db.operationJobs.iter())
+        .filter((j) => j.status !== "done" && j.retryAt <= ctx.timestamp.toDate().toISOString() &&
+          (j.status !== "running" || j.leaseUntil <= ctx.timestamp.toDate().toISOString()))
+        .sort((a, b) => {
+          const rank = (caseId: string) => ({ critical: 0, urgent: 1, normal: 2 }[ctx.db.cases.id.find(caseId)?.priority ?? "normal"] ?? 2);
+          return rank(a.caseId) - rank(b.caseId) || a.requestedAt.localeCompare(b.requestedAt);
+        }).slice(0, 20);
+    case "response_plan": {
+      const c = ctx.db.cases.id.find(key);
+      if (!c || (c.creatorId !== actor && !verifiedMember(ctx))) return null;
+      const plan = ctx.db.responsePlans.caseId.find(key);
+      return plan ? { ...plan, steps: JSON.parse(plan.steps), evidence: JSON.parse(plan.evidence) } : null;
+    }
+    case "shelter_resources": {
+      const row = ctx.db.shelterResources.shelterId.find(key);
+      return row && isStaff(ctx, key) ? row : null;
+    }
+    case "shelter_animals":
+      if (!isStaff(ctx, key)) fail("Verified shelter staff required");
+      return Array.from(ctx.db.shelterAnimals.shelterId.filter(key));
+    case "case_messages": {
+      const c = ctx.db.cases.id.find(key);
+      if (!c || (c.creatorId !== actor && !isStaff(ctx, c.shelterId))) fail("Case access required");
+      return Array.from(ctx.db.caseMessages.caseId.filter(key));
+    }
+    case "match_messages": {
+      const match = ctx.db.matches.id.find(key);
+      if (!match || match.status !== "confirmed" || !relevantMatches(ctx).some((m) => m.id === key))
+        fail("Confirmed match access required");
+      return Array.from(ctx.db.matchMessages.matchId.filter(key));
+    }
+    case "service_case": {
+      const c = ctx.db.cases.id.find(key);
+      const report = c ? ctx.db.reports.id.find(c.reportId) : null;
+      return c && report ? { ...c, report, assessment: ctx.db.sceneAssessments.reportId.find(c.reportId) ?? null,
+        matches: [...ctx.db.matches.lostReportId.filter(c.reportId), ...ctx.db.matches.candidateId.filter(c.reportId)] } : null;
+    }
+    case "service_response_plan":
+      return ctx.db.responsePlans.caseId.find(key) ?? null;
+    case "service_shelter_resources":
+      return Array.from(ctx.db.shelterResources.iter());
+    case "service_incident_cases":
+      return Array.from(ctx.db.incidentCases.iter());
+    case "service_plan_candidates":
+      return Array.from(ctx.db.cases.iter())
+        .filter((c) => !["resolved", "cancelled"].includes(c.status))
+        .filter((c) => !ctx.db.responsePlans.caseId.find(c.id) || ctx.db.responsePlans.caseId.find(c.id)?.status === "stale")
+        .sort((a, b) => ({ critical: 0, urgent: 1, normal: 2 }[a.priority as "critical" | "urgent" | "normal"] ?? 3) -
+          ({ critical: 0, urgent: 1, normal: 2 }[b.priority as "critical" | "urgent" | "normal"] ?? 3) ||
+          a.updatedAt.localeCompare(b.updatedAt))
+        .slice(0, 20)
+        .map((c) => c.id);
+    case "service_pending_push": {
+      const rows = [];
+      for (const notification of ctx.db.notifications.iter()) {
+        if (notification.readAt || ctx.timestamp.toDate().getTime() - Date.parse(notification.createdAt) > 24 * 3600000 || !["POSSIBLE_PET_MATCH", "MATCH_CONFIRMED", "DISASTER_ALERT", "SHELTER_CASE_ASSIGNED", "REPORT_STATUS_CHANGED", "CASE_MESSAGE", "RESPONSE_PLAN_READY", "URGENT_CASE", "CASE_OVERDUE", "MATCH_MESSAGE"].includes(notification.eventType)) continue;
+        for (const device of ctx.db.pushDevices.ownerId.filter(notification.recipientId)) {
+          if (ctx.db.pushDeliveries.id.find(notification.id + ":" + device.id)) continue;
+          rows.push({ notificationId: notification.id, deviceId: device.id, token: device.token,
+            eventType: notification.eventType, payload: JSON.parse(notification.payload) });
+          if (rows.length >= 50) return rows;
+        }
+      }
+      return rows;
+    }
+    case "service_push_receipts":
+      return Array.from(ctx.db.pushDeliveries.iter())
+        .filter((row) => row.status === "accepted" && row.ticketId && ctx.timestamp.toDate().getTime() - Date.parse(row.updatedAt) >= 15 * 60_000)
+        .slice(0, 50);
     case "shelter_verifications": {
       const role = ctx.db.grants.id.find(actor)?.role;
       return role === "admin" || role === "reviewer"
@@ -264,6 +394,10 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         ...r,
         payload: JSON.parse(r.payload),
       }));
+    case "alert_location":
+      return ctx.db.alertLocations.ownerId.find(actor) ?? null;
+    case "service_alert_locations":
+      return Array.from(ctx.db.alertLocations.iter());
     case "simulation_runs":
       return Array.from(ctx.db.simulations.userId.filter(actor), simulation);
     case "service_simulation_run":

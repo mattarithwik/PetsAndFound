@@ -1,24 +1,22 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from './ui';
+import { MotionPressable } from '@/lib/motion';
 
 export function ChatFab({ header = false }: { header?: boolean }) {
   const insets = useSafeAreaInsets();
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel="Ask Pawtricia"
       onPress={() => router.push('/chat')}
-      style={({ pressed }) => [
-        header ? local.header : [local.fab, { bottom: 72 + insets.bottom }],
-        pressed && { opacity: 0.85 },
-      ]}
+      style={header ? local.header : [local.fab, { bottom: 72 + insets.bottom }]}
     >
       <Image source={require('@/assets/doghead.png')} style={local.icon} contentFit="contain" />
-    </Pressable>
+    </MotionPressable>
   );
 }
 

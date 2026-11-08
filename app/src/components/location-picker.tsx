@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { errorText } from '@/lib/api';
+import { feedback } from '@/lib/motion';
 import { currentPlace, placeFromCoordinates, searchPlaces, type Place } from '@/lib/location';
 import { Button, Card, Chips, ErrorNote, Field, ListRow, Muted, Strong, styles } from './ui';
 
@@ -30,7 +31,7 @@ export function LocationPicker({ label = 'Location', value, onChange }: { label?
     try {
       if (method === 'gps') {
         const point = await currentPlace();
-        if (revision.current === version) onChange(point);
+        if (revision.current === version) { onChange(point); feedback('success'); }
       } else {
         const places = await searchPlaces(query.trim());
         if (revision.current !== version) return;
@@ -70,7 +71,7 @@ export function LocationPicker({ label = 'Location', value, onChange }: { label?
           autoCorrect={false} autoCapitalize="none" placeholder="-96.7299" />
         <Button label="Use coordinates" icon="pin-outline" compact variant="ghost" style={styles.alignStart} onPress={() => {
           clear();
-          try { onChange(placeFromCoordinates(latitude, longitude)); } catch (e) { setError(errorText(e)); }
+          try { onChange(placeFromCoordinates(latitude, longitude)); feedback('success'); } catch (e) { setError(errorText(e)); }
         }} />
       </>}
       <ErrorNote error={error} />

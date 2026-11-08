@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LocationPicker } from '@/components/location-picker';
+import { CameraAssist } from '@/components/camera-assist';
 import { PhotoSlot } from '@/components/photos';
 import { Button, Card, Chips, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { agent, db } from '@/lib/api';
@@ -11,6 +12,7 @@ import { useDraft } from '@/lib/drafts';
 import { conditions, dateTime, hoursAgo, publicArea, sinceOptions, speciesLabel } from '@/lib/format';
 import { useAction } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
+import { feedback } from '@/lib/motion';
 import type { Place } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
@@ -31,6 +33,7 @@ type Draft = {
   uploaded: (UploadedPhoto | null)[];
   observedAt?: string;
   reviewing?: boolean;
+  assessment?: { environment: string; visibleConcerns: string[]; uncertainty: string };
 };
 
 const fresh = (): Draft => ({
@@ -55,6 +58,7 @@ export default function FoundReport() {
   const { draft, update, clear, storageError } = useDraft<Draft>('found', fresh);
   const { busy, error, setError, run } = useAction();
   const [progress, setProgress] = useState<string>();
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     if (draft && !draft.place && place && !draft.reviewing) update({ place });
@@ -90,6 +94,7 @@ export default function FoundReport() {
         update({ uploaded: [...uploaded] });
       }
       update({ uploaded, reviewing: true, observedAt: hoursAgo(draft.since) });
+      feedback('success');
     }).finally(() => setProgress(undefined));
 
   const submit = () =>
@@ -114,6 +119,8 @@ export default function FoundReport() {
           ...(draft.singleAnimal ? { animalCount: 1 } : {}),
         })),
       });
+      if (draft.assessment) await db.call(token!, 'save_scene_assessment', { reportId: draft.reportId, ...draft.assessment });
+      feedback('success');
       const reportId = draft.reportId;
       await clear();
       agent.post(token!, '/v1/matching/search', { reportId }).catch(() => undefined);
@@ -130,7 +137,7 @@ export default function FoundReport() {
 
   if (draft.reviewing)
     return (
-      <Screen>
+      <Screen key="review">
         <Stack.Screen options={{ title: 'Report a found animal' }} />
         <SectionTitle>Review before publishing</SectionTitle>
         {draft.images.length ? <Row style={{ flexWrap: 'nowrap' }}>
@@ -144,6 +151,7 @@ export default function FoundReport() {
           <KeyValue label="Found" value={dateTime(draft.observedAt)} />
           <KeyValue label="Public area" value={publicArea(draft.place)} />
           <KeyValue label="Notes" value={draft.description || 'None'} />
+          {draft.assessment ? <KeyValue label="Scene assist" value={draft.assessment.environment} /> : null}
         </Card>
         <Notice title="What happens next">
           {draft.images.length
@@ -158,9 +166,11 @@ export default function FoundReport() {
     );
 
   return (
-    <Screen>
+    <Screen key="form">
       <Stack.Screen options={{ title: 'Report a found animal' }} />
       <SectionTitle>Photos</SectionTitle>
+      <Button label={cameraOpen ? 'Close scene assist' : 'Open scene assist'} variant="outline" icon="camera-outline" onPress={() => setCameraOpen(!cameraOpen)} />
+      {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => { setImage(0, image); setCameraOpen(false); }} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty } })} /> : null}
       <Muted>Add up to three photos of the animal and its markings. You can report an injured or endangered animal without a photo.</Muted>
       <Row style={{ flexWrap: 'nowrap' }}>
         {[0, 1, 2].map((i) => (

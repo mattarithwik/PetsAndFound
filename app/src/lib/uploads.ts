@@ -6,12 +6,12 @@ import type { UploadedPhoto } from './types';
 
 export type PickedImage = { uri: string; mimeType?: string };
 
-const maxBytes = 7 * 1024 * 1024;
+const maxBytes = 10_000_000;
 
 async function jpegForUpload(image: PickedImage): Promise<Blob> {
   const original = await (await fetch(image.uri)).blob();
   if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') {
-    if (original.size > maxBytes) throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 8 MB).');
+    if (original.size > maxBytes) throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 10 MB).');
     return original;
   }
   const bitmap = await createImageBitmap(original);
@@ -28,7 +28,7 @@ async function jpegForUpload(image: PickedImage): Promise<Blob> {
     const next = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
     if (next && next.size <= maxBytes) return next;
   }
-  throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 8 MB).');
+  throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 10 MB).');
 }
 
 export async function pickImage(source: 'camera' | 'library'): Promise<PickedImage | undefined> {
@@ -53,14 +53,34 @@ export async function uploadPhoto(token: string, image: PickedImage): Promise<Up
   const signed = await agent.post<Signed>(token, '/v1/uploads/sign', {});
   const form = new FormData();
   for (const [name, value] of Object.entries(signed.fields)) form.append(name, value);
-  const type = image.mimeType || 'image/jpeg';
-  if (Platform.OS === 'web') form.append('file', await jpegForUpload(image), 'photo.jpg');
-  else form.append('file', { uri: image.uri, name: 'photo.jpg', type } as unknown as Blob);
+  if (Platform.OS === 'web') {
+    form.append('file', await jpegForUpload(image), 'photo.jpg');
+  } else {
+    const { File } = await import('expo-file-system');
+    let file = new File(image.uri);
+    if (!file.exists) throw new ApiError(0, 'The selected photo is no longer available. Choose it again.');
+    if (file.size != null && file.size > maxBytes) {
+      const { ImageManipulator, SaveFormat } = await import('expo-image-manipulator');
+      for (const [edge, quality] of [[2048, 0.8], [1600, 0.65], [1200, 0.5]]) {
+        const context = ImageManipulator.manipulate(image.uri, { maxWidth: edge, maxHeight: edge });
+        const rendered = await context.renderAsync();
+        const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: quality });
+        file = new File(result.uri);
+        if (file.size != null && file.size <= maxBytes) break;
+      }
+    }
+    if (file.size == null || file.size > maxBytes)
+      throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 10 MB).');
+    form.append('file', file);
+  }
   let response: Response;
   try {
-    response = await fetch(signed.uploadUrl, { method: 'POST', body: form });
-  } catch {
-    throw new ApiError(0, 'Photo upload failed. Check your connection and try again.');
+    // Expo's fetch streams native File objects without React Native's URI-to-Blob shim.
+    const uploadFetch = Platform.OS === 'web' ? fetch : (await import('expo/fetch')).fetch;
+    response = await uploadFetch(signed.uploadUrl, { method: 'POST', body: form });
+  } catch (error) {
+    console.warn('Photo upload request failed', error);
+    throw new ApiError(0, 'Photo upload failed while sending to storage. Check your connection and try again.');
   }
   if (!response.ok) {
     let detail = `Photo upload failed (${response.status}).`;

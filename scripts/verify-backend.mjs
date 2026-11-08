@@ -11,6 +11,7 @@ import { message, confirm } from "../services/agent/dist/orchestrator.js";
 import { makeServer } from "../services/agent/dist/server.js";
 import { processJob } from "../services/agent/dist/matching.js";
 import { verifyDomain } from "../spacetimedb/test/domain.mjs";
+import { verifyOperations } from "../spacetimedb/test/operations.mjs";
 
 const base = new URL(process.env.TEST_SPACETIME_URI || "http://127.0.0.1:3000");
 if (!["localhost", "127.0.0.1", "[::1]"].includes(base.hostname))
@@ -64,7 +65,9 @@ try {
   assert.equal((await (await select(owner.token, "my_pets")).json())[0].rows.length, 1);
   assert.equal((await (await select(finder.token, "my_pets")).json())[0].rows.length, 0);
   assert.equal((await select(finder.token, "pets")).ok, false);
+  assert.equal((await select(finder.token, "credentials")).ok, false);
   await assert.rejects(() => finderDb.read("service_jobs"));
+  await assert.rejects(() => finderDb.read("service_credentials", "testowner"));
   const query = {
     requestId: randomUUID(),
     message: "Max is missing",
@@ -176,6 +179,8 @@ try {
   sim = await step(actor, runId, { revision: sim.revision, choiceId: "secure" });
   assert.equal(sim.scene.id, "after");
   sim = await step(actor, runId, { revision: sim.revision, choiceId: "check" });
+  assert.equal(sim.scene.id, "coordination");
+  sim = await step(actor, runId, { revision: sim.revision, choiceId: "coordinate" });
   assert.equal(sim.score, 100);
   assert.equal(sim.completed, true);
   assert.equal(await finderDb.read("simulation_run", runId), null);
@@ -183,6 +188,32 @@ try {
   http = makeServer();
   await new Promise((resolve, reject) => http.once("error", reject).listen(0, "127.0.0.1", resolve));
   const url = "http://127.0.0.1:" + http.address().port;
+  const register = (token, username) => fetch(url + "/v1/auth/register", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password: "test-password-123", role: "owner" }),
+  });
+  assert.equal((await register(owner.token, "testowner")).status, 200);
+  assert.equal(await ownerDb.read("account_username"), "testowner");
+  assert.equal((await service.read("service_credentials", "testowner")).identity, owner.identity);
+  assert.equal((await register(finder.token, "testowner")).status, 409);
+  await assert.rejects(() => finderDb.write("save_credentials", { username: "another", identity: finder.identity }));
+  const login = (password) => fetch(url + "/v1/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "testowner", password }),
+  });
+  assert.equal((await login("incorrect-password")).status, 401);
+  const signedIn = await login("test-password-123");
+  assert.equal(signedIn.status, 200);
+  assert.deepEqual(await signedIn.json(), { token: owner.token, role: "owner" });
+  const missingUser = await fetch(url + "/v1/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "unknownuser", password: "incorrect-password" }),
+  });
+  assert.equal(missingUser.status, 401);
+  assert.deepEqual(await missingUser.json(), { error: "Incorrect username or password" });
+  for (let i = 0; i < 5; i++) assert.equal((await login("incorrect-password")).status, 401);
+  assert.equal((await login("test-password-123")).status, 429);
   assert.equal((await fetch(url + "/v1/scenarios")).status, 401);
   const fromApi = await fetch(url + "/v1/simulations/" + runId, {
     headers: { Authorization: "Bearer " + owner.token },
@@ -196,8 +227,16 @@ try {
     ownerId: owner.identity,
     finderId: finder.identity,
   });
+  await verifyOperations({
+    admin,
+    service,
+    ownerDb,
+    finderDb,
+    ownerId: owner.identity,
+    finderId: finder.identity,
+  });
   console.log(
-    "Passed live registration, access control, agent confirmation, replay, matching queue, simulation and HTTP checks.",
+    "Passed live registration, access control, agent confirmation, replay, matching queue, PawTricia operations, simulation and HTTP checks.",
   );
 } finally {
   if (http) {

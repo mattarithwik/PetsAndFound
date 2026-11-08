@@ -28,7 +28,7 @@ export async function startSimulation(actor: Actor, input: z.infer<typeof startI
       id,
       userId: actor.id,
       scenarioId,
-      state: { choices: [], animal, edition: 2 },
+      state: { choices: [], animal, edition: 3 },
       score: 0,
       expectedRevision: 0,
     });

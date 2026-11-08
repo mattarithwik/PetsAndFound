@@ -22,6 +22,7 @@ export type Pet = {
   colors: string[];
   markings: string;
   age: string;
+  gender: 'female' | 'male' | 'unknown';
   size: string;
   microchip: string;
   healthNotes?: string;
@@ -37,6 +38,7 @@ export type Photo = {
   petId?: string;
   reportId?: string;
 };
+export type SceneAssessment = { reportId: string; environment: string; visibleConcerns: string[]; uncertainty: string; createdAt: string };
 
 export type Report = {
   id: string;
@@ -149,11 +151,37 @@ export type RescueCase = {
   updatedAt: string;
   outcome: string;
 };
+export type Incident = { id: string; title: string; hazard: string; latitude: number; longitude: number; radiusKm: number; status: 'active' | 'closed'; createdAt: string };
+export type CommandCase = { id: string; reportId: string; shelterId: string; priority: Priority; status: CaseStatus; updatedAt: string; createdAt: string; firstReviewedAt: string; possibleDuplicateOf: string; summary: ReportSummary | null; plan: { status: string; suggestedShelterId: string; reason: string } | null };
+export type IncidentBoard = { incident: Incident; cases: CommandCase[] };
+export type ResponsePlan = { caseId: string; status: string; suggestedShelterId: string; reason: string; steps: string[]; evidence: { trace: string[]; agentToolCalls?: string[]; matches: { id: string; score: number }[]; candidates: { id: string; name: string; distanceKm: number; spaces: number }[]; weather: { event: string }[] }; generatedAt: string };
+export type OperationRecommendation = {
+  urgency: Priority;
+  possibleMatch: { id: string; score: number; status: string } | null;
+  suggestedDestination: { id: string; name: string; distanceKm: number; spaces: number } | null;
+  reasons: string[];
+  missingInformation: string[];
+  nextAction: string;
+};
+export type OperationRun = {
+  id: string; caseId: string; trigger: string; status: string; startedAt: string; completedAt: string; error: string;
+  recommendation: OperationRecommendation | null;
+  steps: { tool: string; status: 'success' | 'partial' | 'failed'; requestedBy: 'nemotron' | 'workflow'; startedAt: string; completedAt: string; summary: string; result: unknown }[];
+};
+export type CaseOperations = {
+  job: { status: string; trigger: string; requestedAt: string; retryAt: string } | null;
+  runs: OperationRun[];
+};
+export type ShelterAnimal = { id: string; shelterId: string; caseId: string; species: Species; description: string; status: string; arrivedAt: string; departedAt: string; outcome: string };
+export type ShelterResources = { shelterId: string; species: string; supplies: string; foodUnits: number; crates: number; medicalKits: number; updatedAt: string };
+export type CaseMessage = { id: string; caseId: string; senderId: string; body: string; createdAt: string };
+export type MatchMessage = { id: string; matchId: string; senderId: string; body: string; createdAt: string };
 
 export type CaseDetail = RescueCase & {
   summary: ReportSummary | null;
   report: Report | null;
   photos: Photo[];
+  assessment?: SceneAssessment | null;
 };
 
 export type QueuedCase = { id: string; priority: Priority; report: ReportSummary | null };
@@ -188,7 +216,12 @@ export type NotificationType =
   | 'SHELTER_CASE_ASSIGNED'
   | 'SHELTER_CAPACITY_CHANGED'
   | 'REPORT_STATUS_CHANGED'
-  | 'DISASTER_ALERT';
+  | 'DISASTER_ALERT'
+  | 'RESPONSE_PLAN_READY'
+  | 'CASE_MESSAGE'
+  | 'URGENT_CASE'
+  | 'CASE_OVERDUE'
+  | 'MATCH_MESSAGE';
 
 export type AppNotification = {
   id: string;

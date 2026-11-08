@@ -2,10 +2,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { RemotePhoto } from '@/components/photos';
+import { MatchConversation } from '@/components/match-conversation';
 import { Badge, Button, Card, ErrorNote, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, SourceLink, SourceTag, Strong, Title } from '@/components/ui';
 import { db } from '@/lib/api';
 import { similarity, timeAgo } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
+import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import type { Match } from '@/lib/types';
 
@@ -47,6 +49,7 @@ export default function MatchDetail() {
     run(status, async () => {
       await db.call(token!, 'review_match', { matchId: m.id, status });
       await match.refresh();
+      feedback(status === 'confirmed' ? 'success' : 'selection');
     });
 
   return (
@@ -99,6 +102,7 @@ export default function MatchDetail() {
       {m.status === 'confirmed' && m.ownerId === profile?.id ? (
         <Button label="Open lost report" variant="outline" onPress={() => router.push(`/reports/${m.lostReportId}`)} />
       ) : null}
+      {m.status === 'confirmed' ? <MatchConversation matchId={m.id} /> : null}
       <ErrorNote error={error} />
     </Screen>
   );

@@ -365,7 +365,16 @@ const scenarios: Record<DrillHazard, Scenario> = {
   ),
 };
 // Runs created before the third decision was introduced replay with their original scores.
-export type Edition = 1 | 2;
+export type Edition = 1 | 2 | 3;
+const coordination: Scene = {
+  title: "After the disaster, a pet is missing. A neighbor has a possible sighting, and the nearest shelter may be full.",
+  choices: [
+    choice("coordinate", "Share the sighting and photo, then confirm space with a verified shelter",
+      "A verified report, human review of possible matches and confirmed intake keep the owner and shelter informed.", [1, 1, 1]),
+    choice("assume", "Declare a match and send the animal to the nearest shelter without checking",
+      "A similar photo cannot establish identity, and shelter capacity can change. Confirm both before a handoff.", [0, 0, 0]),
+  ],
+};
 const after: Record<DrillHazard, Scene> = {
   tornado: {
     title: "The warning ends. Outside, the gate is down and debris covers the yard.",
@@ -480,7 +489,7 @@ export function playDrill(
   let next: string | undefined = "start";
   const personalize = (line: string) =>
     line.replace(/your pet\b/gi, (words) => (words.startsWith("Y") ? "Your " + animal : "your " + animal));
-  const node = (id: string) => (id === "after" ? after[hazard] : def.nodes[id]);
+  const node = (id: string) => (id === "after" ? after[hazard] : id === "coordination" ? coordination : def.nodes[id]);
   const totals = [0, 0, 0];
   const history = [];
   for (const id of choices) {
@@ -490,7 +499,7 @@ export function playDrill(
     action.points.forEach((points, i) => {
       totals[i] += points;
     });
-    next = action.next ?? (edition === 2 && history.length === 2 ? "after" : undefined);
+    next = action.next ?? (edition >= 2 && history.length === 2 ? "after" : edition === 3 && history.length === 3 ? "coordination" : undefined);
   }
   const [petSafety, preparedness, decisionQuality] = totals.map((x) =>
     Math.round((x * 100) / Math.max(1, choices.length)),
@@ -498,7 +507,7 @@ export function playDrill(
   const scene = next ? node(next) : undefined;
   return {
     animal,
-    totalDecisions: edition === 2 ? 3 : 2,
+    totalDecisions: edition === 3 ? 4 : edition === 2 ? 3 : 2,
     category: "simulation",
     title: def.title,
     source: def.source,

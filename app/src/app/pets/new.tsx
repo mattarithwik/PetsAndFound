@@ -8,6 +8,7 @@ import { Button, Card, ErrorNote, Muted, Screen, SectionTitle, Title, Toggle } f
 import { db } from '@/lib/api';
 import { useAction } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
+import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import type { Angle, UploadedPhoto } from '@/lib/types';
 import { uploadPhoto, type PickedImage } from '@/lib/uploads';
@@ -39,6 +40,7 @@ export default function NewPet() {
     }
     setProgress('Saving pet profile…');
     await db.call(token!, 'register_pet', { id: petId, ...details, photos });
+    feedback('success');
     if (onboarding) router.replace('/rescue');
     else router.replace(`/pets/${petId}`);
   }).finally(() => setProgress(''));

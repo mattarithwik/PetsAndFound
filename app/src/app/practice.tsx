@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { Pressable } from 'react-native';
 
 import { DrillRoom } from '@/components/drill-room';
 import { colors } from '@/components/ui';
+import { MotionPressable } from '@/lib/motion';
 
 function ExitPractice() {
   const exit = () => {
@@ -11,9 +11,9 @@ function ExitPractice() {
     else router.replace('/');
   };
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Back to PawSafe" onPress={exit} hitSlop={10} style={{ padding: 6 }}>
+    <MotionPressable accessibilityRole="button" accessibilityLabel="Back to PawSafe" onPress={exit} hitSlop={10} style={{ padding: 6 }}>
       <Ionicons name="arrow-back" size={24} color={colors.navy} />
-    </Pressable>
+    </MotionPressable>
   );
 }
 

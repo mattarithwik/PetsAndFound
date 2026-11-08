@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { feedback, MotionPressable } from '@/lib/motion';
 import { useToken } from '@/lib/session';
 import { photoUrl, pickImage, type PickedImage } from '@/lib/uploads';
 
@@ -39,8 +40,8 @@ export function RemotePhoto({ photoId, style, fit = 'cover' }: { photoId?: strin
 export function choosePhotoSource(onPick: (image: PickedImage) => void, onError: (message: string) => void) {
   const pick = (source: 'camera' | 'library') =>
     pickImage(source)
-      .then((image) => image && onPick(image))
-      .catch((e) => onError(e instanceof Error ? e.message : 'Could not open photos.'));
+      .then((image) => { if (image) { onPick(image); feedback('success'); } })
+      .catch((e) => { feedback('error'); onError(e instanceof Error ? e.message : 'Could not open photos.'); });
   if (Platform.OS === 'web') return pick('library');
   if (Platform.OS === 'ios')
     return ActionSheetIOS.showActionSheetWithOptions(
@@ -56,11 +57,11 @@ export function choosePhotoSource(onPick: (image: PickedImage) => void, onError:
 
 export function PhotoSlot({ label, image, onPick, onError, style }: { label: string; image?: PickedImage; onPick: (image: PickedImage) => void; onError: (message: string) => void; style?: StyleProp<ViewStyle> }) {
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel={`Add ${label} photo`}
       onPress={() => choosePhotoSource(onPick, onError)}
-      style={({ pressed }) => [local.slot, style, pressed && { opacity: 0.75 }]}>
+      style={[local.slot, style]}>
       {image ? (
         <Image source={{ uri: image.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
@@ -69,7 +70,7 @@ export function PhotoSlot({ label, image, onPick, onError, style }: { label: str
           <Text style={local.slotLabel}>{label}</Text>
         </>
       )}
-    </Pressable>
+    </MotionPressable>
   );
 }
 

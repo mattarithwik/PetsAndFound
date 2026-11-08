@@ -1,3 +1,4 @@
+import { enqueueOperation } from "./operation-agent";
 import db, { type Ctx } from "./tables";
 import {
   action,
@@ -13,12 +14,14 @@ import {
   object,
   priority,
   sender,
+  service,
   str,
   strings,
   user,
   type Input,
   notify,
 } from "./common";
+import { linkMatchingIncident, notifyNearbyStaff } from "./incident";
 
 export const init = db.init((ctx) => {
   ctx.db.grants.insert({ id: sender(ctx), role: "admin" });
@@ -46,6 +49,27 @@ export const register_user = action((ctx, p) => {
   if (ctx.db.users.id.find(row.id)) ctx.db.users.id.update(row);
   else ctx.db.users.insert(row);
 });
+export const save_credentials = action((ctx, p) => {
+  service(ctx);
+  const username = str(p, "username", 32).toLowerCase();
+  const identity = str(p, "identity", 64).toLowerCase();
+  const appRole = choice(p, "appRole", ["owner", "shelter"]);
+  const passwordHash = str(p, "passwordHash", 128);
+  const salt = str(p, "salt", 32);
+  const token = str(p, "token", 4096);
+  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username) ||
+      !/^[a-f0-9]{64}$/.test(identity) ||
+      !/^[a-f0-9]{128}$/.test(passwordHash) ||
+      !/^[a-f0-9]{32}$/.test(salt) ||
+      !ctx.db.users.id.find(identity)) fail("Invalid credentials");
+  const claimed = ctx.db.credentials.username.find(username);
+  if (claimed && claimed.identity !== identity) fail("Username is taken");
+  const previous = Array.from(ctx.db.credentials.identity.filter(identity))[0];
+  if (previous && previous.username !== username) ctx.db.credentials.username.delete(previous.username);
+  const row = { username, identity, appRole, passwordHash, salt, token };
+  if (claimed) ctx.db.credentials.username.update(row);
+  else ctx.db.credentials.insert(row);
+});
 function petDetails(p: Input) {
   const age = typeof p.age === "number" ? String(num(p, "age", 0, 150)) : str(p, "age", 60, false);
   return {
@@ -55,6 +79,7 @@ function petDetails(p: Input) {
     colors: strings(p, "colors"),
     markings: str(p, "markings", 500, false),
     age,
+    gender: choice({ gender: p.gender ?? "unknown" }, "gender", ["female", "male", "unknown"]),
     size: str(p, "size", 60, false),
     microchip: str(p, "microchip", 120, false),
   };
@@ -206,7 +231,7 @@ function report(ctx: Ctx, p: Input, type: "lost" | "found") {
         longitude: summary.longitude,
       });
   }
-  if (type === "found")
+  if (type === "found") {
     ctx.db.cases.insert({
       id: r.id,
       reportId: r.id,
@@ -219,6 +244,10 @@ function report(ctx: Ctx, p: Input, type: "lost" | "found") {
       updatedAt: now(ctx),
       outcome: "",
     });
+    enqueueOperation(ctx, r.id, "found_report");
+    linkMatchingIncident(ctx, r.id, r);
+    if (priority(r.condition) !== "normal") notifyNearbyStaff(ctx, r.id, summary, "URGENT_CASE");
+  }
   ctx.db.requests.insert({ id: requestId, reportId, body });
   enqueue(ctx, "report", r.id);
 }
@@ -261,5 +290,6 @@ export const update_report = action((ctx, p) => {
         outcome: status === "open" ? c.outcome : "Report " + status,
         updatedAt: now(ctx),
       });
+      if (status === "open") enqueueOperation(ctx, c.id, "report_updated");
     }
 });

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatFab } from '@/components/chat-fab';
 import { colors, type IconName } from '@/components/ui';
+import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 
 function tabIcon(name: IconName) {
@@ -24,6 +25,7 @@ export default function OwnerLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Tabs
+        screenListeners={{ tabPress: () => feedback('selection') }}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.navy,

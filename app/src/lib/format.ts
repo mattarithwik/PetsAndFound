@@ -60,6 +60,11 @@ export const notificationTitle: Record<NotificationType, string> = {
   SHELTER_CAPACITY_CHANGED: 'Shelter capacity updated',
   REPORT_STATUS_CHANGED: 'Report status changed',
   DISASTER_ALERT: 'Official weather alert',
+  RESPONSE_PLAN_READY: 'Response plan ready for review',
+  CASE_MESSAGE: 'New case message',
+  URGENT_CASE: 'Urgent animal report nearby',
+  CASE_OVERDUE: 'Unassigned case needs attention',
+  MATCH_MESSAGE: 'New match message',
 };
 
 /** Similarity is not an identity probability, so it is shown as a 0–100 score rather than a percentage. */

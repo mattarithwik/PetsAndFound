@@ -5,7 +5,6 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, colors, displayFont, ErrorNote, Field, type IconName } from '@/components/ui';
 import { useAction } from '@/lib/hooks';
+import { MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import type { Role } from '@/lib/types';
 
@@ -37,24 +37,28 @@ const roles: { value: Role; name: string; detail: string; icon: IconName }[] = [
 export default function Welcome() {
   const { width } = useWindowDimensions();
   const wide = width >= 840;
-  const { restore, profile } = useSession();
-  const [restoring, setRestoring] = useState(false);
+  const { restore, signIn, profile } = useSession();
+  const [mode, setMode] = useState<'create' | 'signin' | 'key'>('create');
   const [key, setKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('owner');
   const { run, busy, error, setError } = useAction();
 
   const changeMode = () => {
-    setRestoring(!restoring);
+    setMode(mode === 'create' ? 'signin' : 'create');
     setKey('');
+    setPassword('');
     setError(undefined);
   };
   const next = () => {
-    if (!restoring) {
+    if (mode === 'create') {
       router.push(role === 'owner' ? '/owner-onboarding' : '/shelter-onboarding');
       return;
     }
-    void run('restore', async () => {
-      await restore(role, key);
+    void run('signin', async () => {
+      if (mode === 'key') await restore(role, key);
+      else await signIn(username, password);
       router.replace('/');
     });
   };
@@ -69,10 +73,10 @@ export default function Welcome() {
               <Image source={require('@/assets/doghead.png')} style={s.mark} contentFit="contain" />
               <Text style={s.wordmark}>PawSafe</Text>
             </View>
-            <Pressable accessibilityRole="button" onPress={changeMode} disabled={!!busy} style={s.signIn}>
-              <Text style={s.signInText}>{restoring ? 'Create account' : 'Sign in'}</Text>
+            <MotionPressable accessibilityRole="button" feedback="selection" onPress={changeMode} disabled={!!busy} style={s.signIn}>
+              <Text style={s.signInText}>{mode === 'create' ? 'Sign in' : 'Create account'}</Text>
               <Ionicons name="arrow-forward" size={16} color={colors.text} />
-            </Pressable>
+            </MotionPressable>
           </View>
 
           <View style={[s.main, wide ? s.desktopMain : s.mobileMain]}>
@@ -87,16 +91,21 @@ export default function Welcome() {
             <View style={[s.form, wide ? s.desktopForm : s.mobileForm]}>
               <View style={s.headingBlock}>
                 <Text accessibilityRole="header" style={[s.headline, !wide && s.mobileHeadline]}>
-                  {restoring ? 'Welcome back.' : 'Hello!'}
+                  {mode === 'create' ? 'Hello!' : 'Welcome back.'}
                 </Text>
                 <Text style={s.question}>
-                  {restoring ? 'Open your PawSafe account on this device.' : 'How are you joining PawSafe?'}
+                  {mode === 'create' ? 'How are you joining PawSafe?' : 'Sign in to your PawSafe account.'}
                 </Text>
               </View>
-              {restoring ? (
+              {mode === 'signin' ? (
+                <>
+                  <Field label="Username" autoCapitalize="none" autoCorrect={false} textContentType="username" value={username} onChangeText={setUsername} placeholder="Your username" />
+                  <Field label="Password" secureTextEntry textContentType="password" value={password} onChangeText={setPassword} placeholder="Your password" />
+                </>
+              ) : mode === 'key' ? (
                 <Field
                   label="Account key"
-                  hint="On your other device, open Account and copy your account key."
+                  hint="For existing accounts: copy the key from Account on your other device."
                   secureTextEntry
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -105,51 +114,57 @@ export default function Welcome() {
                   placeholder="Paste your account key"
                 />
               ) : null}
-              <View style={s.roleList} accessibilityRole="radiogroup" accessibilityLabel="Your role">
+              {mode !== 'signin' ? <View style={s.roleList} accessibilityRole="radiogroup" accessibilityLabel="Your role">
                 {roles.map((item) => {
                   const selected = role === item.value;
                   return (
-                    <Pressable
+                    <MotionPressable
                       key={item.value}
                       accessibilityRole="radio"
                       accessibilityLabel={item.name}
                       accessibilityState={{ checked: selected }}
                       disabled={!!busy}
+                      feedback={selected ? 'none' : 'selection'}
                       onPress={() => setRole(item.value)}
-                      style={({ pressed }) => [s.role, selected && s.selected, pressed && s.pressed]}
+                      style={[s.role, selected && s.selected]}
                     >
                       <View style={[s.roleIcon, selected && s.selectedIcon]}>
                         <Ionicons name={item.icon} size={25} color={selected ? colors.navy : colors.text} />
                       </View>
                       <View style={s.flex}>
                         <Text style={s.roleName}>{item.name}</Text>
-                        {!restoring ? <Text style={s.roleDetail}>{item.detail}</Text> : null}
+                      {mode === 'create' ? <Text style={s.roleDetail}>{item.detail}</Text> : null}
                       </View>
                       <View style={[s.radio, selected && s.checked]}>
                         {selected ? <View style={s.dot} /> : null}
                       </View>
-                    </Pressable>
+                    </MotionPressable>
                   );
                 })}
-              </View>
+              </View> : null}
               <ErrorNote error={error} />
               <Button
-                label={restoring ? 'Sign in' : 'Continue'}
+                label={mode === 'create' ? 'Continue' : 'Sign in'}
                 icon="arrow-forward"
                 onPress={next}
                 loading={!!busy}
-                disabled={restoring && !key.trim()}
+                disabled={mode === 'key' ? !key.trim() : mode === 'signin' ? !username.trim() || !password : false}
                 style={s.continue}
               />
-              {!restoring ? (
-                <Pressable
+              {mode === 'signin' || mode === 'key' ? (
+                <MotionPressable accessibilityRole="button" feedback="selection" onPress={() => { setMode(mode === 'key' ? 'signin' : 'key'); setError(undefined); }} style={s.practice}>
+                  <Text style={s.practiceText}>{mode === 'key' ? 'Use username and password' : 'Use an existing account key'}</Text>
+                </MotionPressable>
+              ) : null}
+              {mode === 'create' ? (
+                <MotionPressable
                   accessibilityRole="button"
                   onPress={() => router.push('/practice')}
                   style={s.practice}
                 >
                   <Ionicons name="game-controller-outline" size={19} color={colors.navy} />
                   <Text style={s.practiceText}>Try a practice drill</Text>
-                </Pressable>
+                </MotionPressable>
               ) : null}
             </View>
           </View>

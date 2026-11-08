@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { ReportCard } from '@/components/cards';
 import { PetFields, petForm, petPayload, photoAngles, type PetForm } from '@/components/pet-fields';
@@ -11,6 +11,7 @@ import { Badge, Button, Card, Chips, ErrorNote, KeyValue, Loading, Muted, Row, S
 import { db } from '@/lib/api';
 import { capitalize, speciesLabel } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
+import { feedback, MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import type { Angle, Pet, Photo, Report, UploadedPhoto } from '@/lib/types';
 import { uploadPhoto, type PickedImage } from '@/lib/uploads';
@@ -24,9 +25,9 @@ export function PetCover({ pet, photoId, onPhoto }: { pet?: Pet; photoId?: strin
         {photoId ? <RemotePhoto photoId={photoId} style={local.photo} /> : pet ?
           <View style={[local.photo, local.emptyPortrait]}><Ionicons name="paw" size={46} color={colors.navy} /></View> :
           <Image source={require('../../assets/daisy.png')} contentFit="cover" style={local.photo} />}
-        {onPhoto ? <Pressable onPress={onPhoto} accessibilityRole="button" accessibilityLabel="Add a reference photo" style={local.camera}>
+        {onPhoto ? <MotionPressable onPress={onPhoto} accessibilityRole="button" accessibilityLabel="Add a reference photo" style={local.camera}>
           <Ionicons name="camera" size={16} color={colors.navy} />
-        </Pressable> : null}
+        </MotionPressable> : null}
       </View>
       <Text accessibilityRole="header" style={local.name}>{pet?.name ?? 'Your pet profiles'}</Text>
       <Text style={local.subtitle}>{pet ? [pet.breed || speciesLabel(pet.species), pet.age].filter(Boolean).join('  ·  ') :
@@ -68,6 +69,7 @@ export function PetPassport({ id, onSaved }: { id: string; onSaved?: () => void 
     });
     setAddition(undefined);
     await data.refresh();
+    feedback('success');
   });
   const saveDetails = () => run('details', async () => {
     if (!form || !original) return;
@@ -78,6 +80,7 @@ export function PetPassport({ id, onSaved }: { id: string; onSaved?: () => void 
     if (Object.keys(changes).length) await db.call(token!, 'update_pet', { id, ...changes });
     setForm(undefined);
     await data.refresh();
+    feedback('success');
     onSaved?.();
   });
 
@@ -98,12 +101,12 @@ export function PetPassport({ id, onSaved }: { id: string; onSaved?: () => void 
       {!photos.length ? <Muted>Add a clear front photo to make {pet.name} eligible for image matching.</Muted> : null}
       <View style={local.gallery}>
         {gallery.map(({ angle, label, photo }) => (
-          <Pressable key={photo?.id ?? angle} accessibilityRole="button"
+          <MotionPressable key={photo?.id ?? angle} accessibilityRole="button"
             accessibilityLabel={photo ? `View ${label.toLowerCase()} photo` : `Add ${label.toLowerCase()} photo`}
             onPress={() => photo ? setExpanded(photo) : choose(angle)} style={local.cell}>
             {photo ? <RemotePhoto photoId={photo.id} style={local.tile} /> : <View style={[local.tile, local.add]}><Ionicons name="add" size={25} color={colors.navy} /></View>}
             <Text style={local.caption}>{label}</Text>
-          </Pressable>
+          </MotionPressable>
         ))}
       </View>
       <Modal visible={!!expanded} transparent animationType="fade" onRequestClose={() => setExpanded(undefined)}>

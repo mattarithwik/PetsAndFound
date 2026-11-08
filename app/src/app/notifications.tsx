@@ -1,9 +1,11 @@
 import { router, Stack, type Href } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { Button, Empty, ErrorNote, ListRow, Loading, Screen } from '@/components/ui';
 import type { IconName } from '@/components/ui';
 import { db, errorText } from '@/lib/api';
+import { dailyTipsEnabled, deviceAlertsEnabled, disableDailyTips, disableDeviceAlerts, enableDailyTips, enableDeviceAlerts } from '@/lib/device-alerts';
 import { notificationTitle, timeAgo } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import type { AppNotification, NotificationType } from '@/lib/types';
@@ -16,6 +18,11 @@ const icons: Record<NotificationType, IconName> = {
   SHELTER_CAPACITY_CHANGED: 'stats-chart-outline',
   REPORT_STATUS_CHANGED: 'refresh-outline',
   DISASTER_ALERT: 'warning-outline',
+  RESPONSE_PLAN_READY: 'document-text-outline',
+  CASE_MESSAGE: 'chatbubble-outline',
+  URGENT_CASE: 'alert-circle-outline',
+  CASE_OVERDUE: 'time-outline',
+  MATCH_MESSAGE: 'chatbubbles-outline',
 };
 
 function detail(n: AppNotification) {
@@ -29,6 +36,10 @@ function detail(n: AppNotification) {
       return p.event;
     case 'SHELTER_CASE_ASSIGNED':
       return 'A verified shelter accepted the animal you reported';
+    case 'CASE_MESSAGE':
+      return 'A case partner sent an update';
+    case 'MATCH_MESSAGE':
+      return 'A match partner sent an update';
     default:
       return undefined;
   }
@@ -39,6 +50,25 @@ export default function Notifications() {
   const [error, setError] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [tipsOn, setTipsOn] = useState(false);
+  const [deviceBusy, setDeviceBusy] = useState(false);
+  useEffect(() => { void Promise.all([deviceAlertsEnabled(), dailyTipsEnabled()]).then(([push, tips]) => { setPushOn(push); setTipsOn(tips); }); }, []);
+
+  const toggleDevice = async (kind: 'push' | 'tips') => {
+    if (deviceBusy) return;
+    setDeviceBusy(true); setError(undefined);
+    try {
+      if (kind === 'push') {
+        if (pushOn) { await disableDeviceAlerts(token!); setPushOn(false); }
+        else { await enableDeviceAlerts(token!); setPushOn(true); }
+      } else {
+        if (tipsOn) { await disableDailyTips(); setTipsOn(false); }
+        else { await enableDailyTips(); setTipsOn(true); }
+      }
+    } catch (e) { setError(errorText(e)); }
+    finally { setDeviceBusy(false); }
+  };
 
   const target = (n: AppNotification): Href | undefined => {
     const p = n.payload as Record<string, string | undefined>;
@@ -91,6 +121,10 @@ export default function Notifications() {
         setRefreshing(false);
       }}>
       <Stack.Screen options={{ title: 'Notifications' }} />
+      {Platform.OS !== 'web' ? <>
+        <Button label={pushOn ? 'Turn off device alerts' : 'Enable device alerts'} variant="outline" loading={deviceBusy} onPress={() => { void toggleDevice('push'); }} />
+        <Button label={tipsOn ? 'Turn off daily preparation tips' : 'Get daily preparation tips'} variant="ghost" loading={deviceBusy} onPress={() => { void toggleDevice('tips'); }} />
+      </> : null}
       <ErrorNote error={error} />
       {unread ? <Button label="Mark all as read" variant="ghost" compact loading={marking} onPress={markAll} /> : null}
       {notificationStatus === 'loading' ? <Loading label="Loading notifications…" /> : null}

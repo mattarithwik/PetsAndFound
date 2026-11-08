@@ -5,14 +5,14 @@ from io import BytesIO
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
-MAX_BYTES = 8 * 1024 * 1024
+MAX_BYTES = 10_000_000
 MAX_ENCODED = 4 * ((MAX_BYTES + 2) // 3)
 MAX_PIXELS = 24_000_000
 
 
 def decode(encoded):
     if len(encoded) > MAX_ENCODED:
-        raise ValueError("Photo exceeds 8 MiB")
+        raise ValueError("Photo exceeds 10 MB")
     try:
         raw = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:

@@ -67,6 +67,19 @@ export const db = {
   },
 };
 
+export const account = {
+  async signIn(username: string, password: string) {
+    return JSON.parse(await send('PawSafe service', config.agentUrl + '/v1/auth/login', {
+      method: 'POST', headers: headers(), body: JSON.stringify({ username, password }),
+    })) as { token: string; role: 'owner' | 'shelter' };
+  },
+  async setPassword(token: string, username: string, password: string, role: 'owner' | 'shelter') {
+    await send('PawSafe service', config.agentUrl + '/v1/auth/register', {
+      method: 'POST', headers: headers(token), body: JSON.stringify({ username, password, role }),
+    });
+  },
+};
+
 export const agent = {
   async get<T>(token: string, path: string): Promise<T> {
     return JSON.parse(await send('PawSafe service', config.agentUrl + path, { headers: headers(token, false) })) as T;

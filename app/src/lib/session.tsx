@@ -10,9 +10,10 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
-import { db } from './api';
+import { account, db } from './api';
 import { startRealtime } from './realtime';
 import { storage } from './storage';
+import { unregisterOnSignOut } from './device-alerts';
 import type { Access, AppNotification, Profile, Role } from './types';
 
 const TOKEN_KEY = 'pawsafe.token';
@@ -32,7 +33,9 @@ type Session = {
   online: boolean;
   activeShelterId?: string;
   setActiveShelter(id: string): void;
-  createAccount(role: Role, profile: ProfileInput): Promise<void>;
+  createAccount(role: Role, profile: ProfileInput, username: string, password: string): Promise<void>;
+  signIn(username: string, password: string): Promise<void>;
+  setCredentials(username: string, password: string): Promise<void>;
   restore(role: Role, token: string): Promise<void>;
   saveProfile(profile: ProfileInput): Promise<void>;
   setRole(role: Role): Promise<void>;
@@ -192,12 +195,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       online,
       activeShelterId,
       setActiveShelter,
-      async createAccount(nextRole, input) {
+      async createAccount(nextRole, input, username, password) {
         // Save the identity before registering. A dropped acknowledgement can safely be retried.
         const value = currentToken.current || (await db.createIdentity()).token;
         await remember(value, nextRole);
         await db.call(value, 'register_user', profilePayload(input));
+        await account.setPassword(value, username.trim(), password, nextRole);
         await load(value);
+      },
+      async signIn(username, password) {
+        const signed = await account.signIn(username.trim(), password);
+        const restored = await snapshot(signed.token);
+        if (!restored.profile) throw new Error('Account profile is unavailable.');
+        await remember(signed.token, signed.role);
+        setProfile(restored.profile);
+        setAccess(restored.access);
+        setNotifications([]);
+        setNotificationStatus('loading');
+        setActiveShelter(undefined);
+        setOnline(true);
+      },
+      async setCredentials(username, password) {
+        if (!token) throw new Error('Sign in first.');
+        await account.setPassword(token, username.trim(), password, role ?? 'owner');
       },
       async restore(nextRole, value) {
         const trimmed = value.trim();
@@ -225,6 +245,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       refreshNotifications,
       async signOut() {
+        if (token) await unregisterOnSignOut(token);
         await Promise.all([storage.remove(TOKEN_KEY), storage.remove(ROLE_KEY)]);
         currentToken.current = undefined;
         setToken(undefined);

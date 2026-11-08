@@ -1,3 +1,4 @@
+import { replanForShelter } from "./operation-agent";
 import {
   action,
   canReadReport,
@@ -106,6 +107,7 @@ export const set_shelter_verification = action((ctx, p) => {
   }
   if (status === "verified" && !ctx.db.staff.id.find(staffId))
     ctx.db.staff.insert({ id: staffId, userId: request.applicantId, shelterId: key, role: "manager" });
+  replanForShelter(ctx, key, "capacity_changed");
 });
 export const set_shelter_staff = action((ctx, p) => {
   const shelterId = id(p, "shelterId"),
@@ -202,6 +204,7 @@ export const update_shelter_capacity = action((ctx, p) => {
     acceptingAnimals: p.acceptingAnimals,
     capacityUpdatedAt: now(ctx),
   });
+  replanForShelter(ctx, key);
   for (const person of ctx.db.staff.shelterId.filter(key))
     notify(
       ctx,
@@ -265,6 +268,8 @@ export const assign_rescue_case = action((ctx, p) => {
   if (assigneeId !== sender(ctx) && ctx.db.staff.id.find(shelterId + ":" + sender(ctx))?.role !== "manager")
     fail("Manager required to assign a colleague");
   ctx.db.cases.id.update({ ...c, shelterId, assigneeId, status: "assigned", updatedAt: now(ctx) });
+  if (!ctx.db.caseFirstReviews.caseId.find(c.id))
+    ctx.db.caseFirstReviews.insert({ caseId: c.id, reviewedAt: now(ctx), reviewerId: sender(ctx) });
   notify(ctx, "assigned:" + c.id + ":" + now(ctx), c.creatorId, "SHELTER_CASE_ASSIGNED", {
     caseId: c.id,
     shelterId,
@@ -297,6 +302,8 @@ export const update_case_status = action((ctx, p) => {
   if (status !== "under_review") staffCase(ctx, p);
   const outcome = status === "cancelled" ? str(p, "outcome", 1000) : c.outcome;
   ctx.db.cases.id.update({ ...c, status, outcome, updatedAt: now(ctx) });
+  if (status === "under_review" && !ctx.db.caseFirstReviews.caseId.find(c.id))
+    ctx.db.caseFirstReviews.insert({ caseId: c.id, reviewedAt: now(ctx), reviewerId: sender(ctx) });
   notify(ctx, "case-status:" + c.id + ":" + status, c.creatorId, "REPORT_STATUS_CHANGED", {
     caseId: c.id,
     status,

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { ExternalCard, MatchCard, NotificationBell, ReportCard, ShelterCard, SummaryCard } from '@/components/cards';
 import { PinMap } from '@/components/pin-map';
@@ -27,6 +27,7 @@ import { useLive } from '@/lib/hooks';
 import { distanceKm } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
+import { MotionPressable } from '@/lib/motion';
 import type { ExternalReport, Match, NearbyShelter, Pet, Report, ReportSummary, Sourced, Species } from '@/lib/types';
 
 export default function Rescue() {
@@ -333,7 +334,7 @@ export default function Rescue() {
 
 function ActionCard({ title, detail, icon, onPress }: { title: string; detail: string; icon: IconName; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [local.action, pressed && { opacity: 0.8 }]}>
+    <MotionPressable accessibilityRole="button" onPress={onPress} style={local.action}>
       <View style={local.actionIcons}>
         <Ionicons name={icon} color={colors.navy} size={24} />
         <Ionicons name="arrow-forward" size={17} color={colors.navy} />
@@ -342,7 +343,7 @@ function ActionCard({ title, detail, icon, onPress }: { title: string; detail: s
         <Text style={local.actionTitle}>{title}</Text>
         <Text style={local.actionDetail}>{detail}</Text>
       </View>
-    </Pressable>
+    </MotionPressable>
   );
 }
 

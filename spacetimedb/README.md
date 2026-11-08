@@ -4,6 +4,8 @@ The TypeScript module targets SpacetimeDB 2.14.1. Run `npm ci` and `npm run buil
 
 ## Wire format
 
+The app signs in with a username and password through the agent service. The service verifies the caller's Spacetime identity when credentials are registered, hashes passwords with scrypt, and keeps the password hash, salt and identity token in the private `credentials` table. Only a granted service identity can read credential records. The caller can read only their username through `account_username`. Existing account-key users can sign in with that key and set a username and password from Account.
+
 Pass the caller's SpacetimeDB bearer token to `POST /v1/database/{database}/call/{reducer}`. Every reducer takes a single string argument containing a JSON object. For example, registering a pet sends the following HTTP JSON body.
 
 ```json
@@ -57,7 +59,13 @@ The publisher may call `grant_service_identity`, `grant_reviewer_identity` and `
 | Agent and simulation owner | `agent_runs`, `agent_run`, `tool_events` by run ID, `simulation_runs`, `simulation_run` |
 | Granted service identity | `service_jobs`, `service_reports`, `service_photos` by report ID, `service_photo` by photo ID, `service_external`, `service_simulation_run` |
 
+The private `service_credentials` read and `save_credentials` reducer require the service grant. User identities cannot read or write credential records directly. Username collisions are rejected in the reducer.
+
 Subscribers can query `report_summaries` and `shelters` directly, and subscribe to `my_profile`, `my_pets`, `my_pet_photos`, `my_reports`, `my_report_photos`, `my_matches`, `my_cases`, `my_staff_roles`, `my_shelter_verifications`, `my_notifications`, `my_simulation_runs`, `my_agent_runs` or `my_agent_tool_events`. Private tables stay inaccessible to regular SQL clients.
+
+### Incident command
+
+Verified staff can call `create_incident` with `id,title,hazard,latitude,longitude,radiusKm` near their shelter. Existing and new nearby found cases link to the incident. `incidents` and `incident_board` reads show the active queue, priority, review status and 15-minute unattended cases. Staff can call `link_incident_case`, `close_incident`, `review_response_plan`, `update_shelter_resources`, `register_shelter_animal`, `discharge_shelter_animal` and `send_case_message`. A case reporter can also send a message once a verified shelter accepts the case. Confirmed match participants can use `send_match_message` and read `match_messages`. `scene_assessment` is visible to the reporter and assigned shelter; `save_scene_assessment` accepts only the reporter's own open found report. The service identity writes `save_response_plan`, `escalate_unattended_cases`, `create_notification` and `record_push_delivery`. It reads `service_plan_candidates`, `service_case`, `service_shelter_resources`, `service_alert_locations`, `service_pending_push` and `service_push_receipts`. Owners can opt into proactive official alerts with `set_alert_location` and revoke that point with `remove_alert_location`.
 
 ## Service writes
 
@@ -80,3 +88,11 @@ Subscribers can query `report_summaries` and `shelters` directly, and subscribe 
 Reviewers may call `review_external_photos` with `id,photoUrls,animalCount` after inspecting each permitted photo in a listing. The URLs must exactly match the current source record. Unknown and multi-animal subjects are held for review by the matching service.
 
 Removal, revocation, and media changes enqueue a durable purge with `purgeExternalId` and retired `photoUrls`. After deleting those vectors, the service acknowledges the job version to erase the retired URLs. Refreshed images become eligible for matching after the purge completes.
+
+## PawTricia operations records
+
+`operation_jobs` coalesces case events by version and keeps worker leases and retry times. `operation_runs` retains each execution, its step results, structured recommendation, trigger and outcome. Both tables are private.
+
+Service reducers: `ensure_operation_jobs {}` backfills found cases; `queue_response_plan {caseId}` requests a refresh; `claim_operation_job {caseId,version,runId}` acquires a lease; `record_operation_step {runId,tool,status,requestedBy,startedAt,summary,result}` records JSON tool evidence; `renew_operation_lease {runId}` keeps a long tool execution leased; `finish_operation_run {runId,status,recommendation?,suggestedShelterId?,reason?,steps?,evidence?,error?}` atomically saves the recommendation/response plan and acknowledges only the claimed queue version. JSON documents are encoded as strings in reducer payloads. A superseded run cannot replace a current plan.
+
+Service reads: `service_operation_jobs` returns work eligible for a claim; `service_operation_job` takes a case ID. Authorized case viewers use `case_operations` with a case ID to read the queue state and ten most recent runs with parsed tool results and recommendations.

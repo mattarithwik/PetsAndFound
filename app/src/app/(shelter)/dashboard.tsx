@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { AlertCard, CaseCard, MatchCard, NotificationBell } from '@/components/cards';
@@ -86,6 +86,8 @@ export default function Dashboard() {
         </Card>
       )}
       {verified ? <Button label="Update capacity" icon="create-outline" variant="outline" compact onPress={() => router.push('/settings')} /> : null}
+      {verified ? <Button label="Add an animal in our care" icon="add-circle-outline" onPress={() => router.push('/registry' as Href)} /> : null}
+      {verified ? <Button label="View animals and supplies" icon="paw-outline" variant="outline" compact onPress={() => router.push('/registry' as Href)} /> : null}
 
       {verified && ops.data ? (
         <>

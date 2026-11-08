@@ -65,6 +65,7 @@ function Navigator() {
           <Stack.Screen name="report/found" options={{ title: 'Found animal' }} />
           <Stack.Screen name="reports/[id]" options={{ title: 'Report' }} />
           <Stack.Screen name="cases/[id]" options={{ title: 'Rescue case' }} />
+          <Stack.Screen name="registry" options={{ title: 'Shelter registry' }} />
           <Stack.Screen name="matches/[id]" options={{ title: 'Possible match' }} />
         </Stack.Protected>
       </Stack>

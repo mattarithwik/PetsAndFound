@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { ApiError, authenticate, type Actor } from "./db.js";
+import { registerCredentials, signInCredentials } from "./auth.js";
 import { message, confirm, messageInput } from "./orchestrator.js";
 import { upload, getPhotoUrl } from "./media.js";
 import {
@@ -15,6 +16,8 @@ import {
   hazards,
 } from "./simulation.js";
 import { reportQuery } from "./matching.js";
+import { planForActor } from "./response.js";
+import { assessScene, sceneInput } from "./scene.js";
 import {
   id,
   ingestSocial,
@@ -29,14 +32,14 @@ import {
 } from "./workflows.js";
 import { getDisasterHistory, getPreparednessGuidance } from "./providers/index.js";
 
-async function json(req: IncomingMessage) {
+async function json(req: IncomingMessage, limit = 32768) {
   if (req.headers["content-type"]?.split(";")[0].trim() !== "application/json")
     throw new ApiError(415, "Use application/json");
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 32768) throw new ApiError(413, "Request exceeds 32 KiB");
+    if (size > limit) throw new ApiError(413, "Request is too large");
     chunks.push(chunk);
   }
   try {
@@ -96,13 +99,21 @@ export function makeServer(auth = authenticate) {
         reply(200, { service: "pawsafe-agent", status: "ok" });
         return;
       }
+      if (req.method === "POST" && path === "/v1/auth/login") {
+        reply(200, await signInCredentials(await json(req), req.socket.remoteAddress));
+        return;
+      }
+      if (req.method === "POST" && path === "/v1/auth/register") {
+        reply(200, await registerCredentials(req.headers.authorization, await json(req)));
+        return;
+      }
       const actor = await auth(req.headers.authorization);
       if ((busy.get(actor.id) || 0) >= 4) throw new ApiError(429, "Too many concurrent requests");
       busy.set(actor.id, (busy.get(actor.id) || 0) + 1);
       active = actor.id;
       let value: unknown;
       if (req.method === "POST") {
-        const input = await json(req);
+        const input = await json(req, path === "/v1/scene/assess" ? 2_100_000 : 32768);
         switch (path) {
           case "/v1/agent/message":
             value = await message(actor, messageInput.parse(input));
@@ -112,6 +123,12 @@ export function makeServer(auth = authenticate) {
             break;
           case "/v1/matching/search":
             value = await searchMatches(actor, reportQuery.parse(input).reportId);
+            break;
+          case "/v1/response/plan":
+            value = await planForActor(actor, z.object({ caseId: id }).strict().parse(input).caseId);
+            break;
+          case "/v1/scene/assess":
+            value = await assessScene(sceneInput.parse(input));
             break;
           case "/v1/ingestion/bluesky/search":
             value = await ingestSocial(actor.system, socialInput.parse(input));

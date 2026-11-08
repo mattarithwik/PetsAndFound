@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
+import { MotionPressable } from '@/lib/motion';
 import { colors } from './ui';
 
 export type Pin = {
@@ -74,7 +75,7 @@ export function PinMap({ pins, center, onPress }: { pins: Pin[]; center?: Point;
         {tiles}
         {width
           ? offsets.map(({ pin, x, y }) => (
-              <Pressable
+              <MotionPressable
                 key={pin.id}
                 accessibilityRole="button"
                 accessibilityLabel={pin.title}
@@ -91,7 +92,7 @@ export function PinMap({ pins, center, onPress }: { pins: Pin[]; center?: Point;
                 ]}
               >
                 <Ionicons name={pin.tone === 'shelter' ? 'home' : 'paw'} color="white" size={15} />
-              </Pressable>
+              </MotionPressable>
             ))
           : null}
         <a
@@ -115,7 +116,7 @@ export function PinMap({ pins, center, onPress }: { pins: Pin[]; center?: Point;
         <View style={local.caption}>
           <Text style={local.name}>{selected.title}</Text>
           {selected.detail ? <Text>{selected.detail}</Text> : null}
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             onPress={() =>
               onPress
@@ -126,7 +127,7 @@ export function PinMap({ pins, center, onPress }: { pins: Pin[]; center?: Point;
             }
           >
             <Text style={local.link}>{onPress ? 'Open details' : 'Open full map'} →</Text>
-          </Pressable>
+          </MotionPressable>
         </View>
       ) : null}
     </View>

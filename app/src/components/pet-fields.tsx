@@ -16,6 +16,7 @@ export function petForm(pet?: Pet) {
     species: pet?.species ?? 'dog' as Species,
     breed: pet?.breed ?? '',
     age: pet?.age ?? '',
+    gender: pet?.gender ?? 'unknown',
     size: pet?.size ?? '',
     colors: pet?.colors.join(', ') ?? '',
     markings: pet?.markings ?? '',
@@ -44,6 +45,9 @@ export function PetFields({ form, onChange }: { form: PetForm; onChange: (form: 
       ]} />
       <Field label="Breed" value={form.breed} onChangeText={set('breed')} placeholder="Breed or mix" maxLength={120} />
       <Field label="Approximate age" value={form.age} onChangeText={set('age')} placeholder="4 years" maxLength={60} />
+      <Chips label="Gender" value={form.gender} onChange={set('gender')} options={[
+        { value: 'female', label: 'Female' }, { value: 'male', label: 'Male' }, { value: 'unknown', label: 'Unknown' },
+      ]} />
       <Chips label="Size" value={form.size} onChange={set('size')} options={[
         { value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' },
       ]} />

@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,11 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
+
+import { feedback, MotionPressable } from '@/lib/motion';
+
+const enterScreen = FadeInDown.duration(240).withInitialValues({ opacity: 0, translateY: 10 }).reduceMotion(ReduceMotion.System);
 
 export const displayFont = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 
@@ -78,13 +82,13 @@ export function Screen({ children, edges = [], refreshing, onRefresh, scroll = t
     <SafeAreaView style={styles.screen} edges={edges}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: bottomInset }, contentStyle]}
+          contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
           refreshControl={refresh ? <RefreshControl refreshing={refreshing ?? pulling} onRefresh={refresh} /> : undefined}>
-          {children}
+          <Animated.View entering={enterScreen} style={[styles.content, { paddingBottom: bottomInset }, contentStyle]}>{children}</Animated.View>
         </ScrollView>
       ) : (
-        <View style={[styles.flex, contentStyle]}>{children}</View>
+        <Animated.View entering={enterScreen} style={[styles.flex, contentStyle]}>{children}</Animated.View>
       )}
     </SafeAreaView>
   );
@@ -106,9 +110,9 @@ export function Card({ children, onPress, style, tone }: { children: ReactNode; 
   const toneStyle = tone ? { backgroundColor: toneColors[tone].bg, borderColor: toneColors[tone].bg } : undefined;
   if (!onPress) return <View style={[styles.card, toneStyle, style]}>{children}</View>;
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, toneStyle, style, pressed && styles.pressed]}>
+    <MotionPressable accessibilityRole="button" onPress={onPress} style={[styles.card, toneStyle, style]}>
       {children}
-    </Pressable>
+    </MotionPressable>
   );
 }
 
@@ -140,12 +144,12 @@ type ButtonProps = {
 export function Button({ label, onPress, variant = 'primary', icon, loading, disabled, compact, style }: ButtonProps) {
   const fg = variant === 'primary' || variant === 'danger' ? colors.white : colors.navy;
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
-      style={({ pressed }) => [
+      style={[
         styles.button,
         compact && styles.buttonCompact,
         variant === 'primary' && { backgroundColor: colors.navy },
@@ -153,12 +157,11 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
         variant === 'outline' && styles.buttonOutline,
         variant === 'ghost' && styles.buttonGhost,
         (disabled || loading) && styles.disabled,
-        pressed && styles.pressed,
         style,
       ]}>
       {loading ? <ActivityIndicator color={fg} /> : icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
       <Text style={[styles.buttonText, { color: fg }, compact && styles.buttonTextCompact]}>{label}</Text>
-    </Pressable>
+    </MotionPressable>
   );
 }
 
@@ -185,14 +188,15 @@ export function Chips<T extends string>({ label, options, value, onChange }: { l
         {options.map((option) => {
           const selected = option.value === value;
           return (
-            <Pressable
+            <MotionPressable
               key={option.value}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              onPress={() => onChange(option.value)}
+              feedback={selected ? 'none' : 'selection'}
+              onPress={() => { if (!selected) onChange(option.value); }}
               style={[styles.chip, selected && styles.chipSelected]}>
               <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
-            </Pressable>
+            </MotionPressable>
           );
         })}
       </View>
@@ -207,7 +211,7 @@ export function Toggle({ label, detail, value, onChange }: { label: string; deta
         <Text style={styles.strong}>{label}</Text>
         {detail ? <Text style={styles.muted}>{detail}</Text> : null}
       </View>
-      <Switch accessibilityLabel={label} value={value} onValueChange={onChange} trackColor={{ true: colors.sky, false: '#CBD5DD' }} />
+      <Switch accessibilityLabel={label} value={value} onValueChange={(next) => { feedback('selection'); onChange(next); }} trackColor={{ true: colors.sky, false: '#CBD5DD' }} />
     </View>
   );
 }
@@ -249,12 +253,15 @@ export function Notice({ tone = 'info', title, children, icon }: { tone?: Tone; 
 }
 
 export function ErrorNote({ error, onRetry }: { error?: string; onRetry?: () => void }) {
+  useEffect(() => { if (error) feedback('error'); }, [error]);
   if (!error) return null;
   return (
-    <Notice tone="danger" title={onRetry ? 'Something went wrong' : undefined}>
-      <Text style={styles.body}>{error}</Text>
-      {onRetry ? <Button label="Try again" variant="ghost" compact onPress={onRetry} style={styles.alignStart} /> : null}
-    </Notice>
+    <Animated.View entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}>
+      <Notice tone="danger" title={onRetry ? 'Something went wrong' : undefined}>
+        <Text style={styles.body}>{error}</Text>
+        {onRetry ? <Button label="Try again" variant="ghost" compact onPress={onRetry} style={styles.alignStart} /> : null}
+      </Notice>
+    </Animated.View>
   );
 }
 
@@ -292,7 +299,7 @@ export function KeyValue({ label, value }: { label: string; value?: ReactNode })
 
 export function ListRow({ icon, title, detail, right, onPress }: { icon?: IconName; title: string; detail?: string; right?: ReactNode; onPress?: () => void }) {
   return (
-    <Pressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}>
+    <MotionPressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} disabled={!onPress} style={styles.listRow}>
       {icon ? (
         <View style={styles.listIcon}>
           <Ionicons name={icon} size={20} color={colors.navy} />
@@ -305,15 +312,15 @@ export function ListRow({ icon, title, detail, right, onPress }: { icon?: IconNa
         {detail ? <Text style={styles.muted} numberOfLines={3}>{detail}</Text> : null}
       </View>
       {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.baby} /> : null)}
-    </Pressable>
+    </MotionPressable>
   );
 }
 
 export function SourceLink({ url, label }: { url: string; label?: string }) {
   return (
-    <Text accessibilityRole="link" style={styles.link} onPress={() => { if (/^https?:\/\//i.test(url)) void Linking.openURL(url).catch(() => undefined); }} numberOfLines={1}>
-      {label ?? url.replace(/^https?:\/\//, '')}
-    </Text>
+    <MotionPressable accessibilityRole="link" onPress={() => { if (/^https?:\/\//i.test(url)) void Linking.openURL(url).catch(() => undefined); }} style={styles.linkPress}>
+      <Text style={styles.link} numberOfLines={1}>{label ?? url.replace(/^https?:\/\//, '')}</Text>
+    </MotionPressable>
   );
 }
 
@@ -335,6 +342,7 @@ export const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   alignStart: { alignSelf: 'flex-start' },
   screen: { flex: 1, backgroundColor: colors.bg },
+  scrollContainer: { flexGrow: 1 },
   content: { width: '100%', maxWidth: 880, alignSelf: 'center', padding: 20, gap: 14 },
   hero: {
     backgroundColor: '#D9EEFF',
@@ -403,6 +411,7 @@ export const styles = StyleSheet.create({
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   listIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.pale, alignItems: 'center', justifyContent: 'center' },
   link: { color: colors.navy, fontSize: 13, textDecorationLine: 'underline' },
+  linkPress: { alignSelf: 'flex-start', maxWidth: '100%' },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   stat: { flex: 1, minWidth: 92, borderRadius: 16, padding: 12, gap: 2 },
   statValue: { fontSize: 24, fontWeight: '800' },

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
+import { MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import {
   caseStatusLabel,
@@ -185,14 +186,14 @@ export function CaseCard({ item, onPress }: { item: RescueCase | QueuedCase; onP
 export function NotificationBell() {
   const { unread } = useSession();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Notifications, ${unread} unread`} onPress={() => router.push('/notifications')} style={local.bell}>
+    <MotionPressable accessibilityRole="button" accessibilityLabel={`Notifications, ${unread} unread`} onPress={() => router.push('/notifications')} style={local.bell}>
       <Ionicons name="notifications-outline" size={24} color={colors.navy} />
       {unread ? (
         <View style={local.dot}>
           <Text style={local.dotText}>{unread > 9 ? '9+' : unread}</Text>
         </View>
       ) : null}
-    </Pressable>
+    </MotionPressable>
   );
 }
 

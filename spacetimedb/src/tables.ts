@@ -14,6 +14,11 @@ export const users = table(
     emergencyContact: s(),
   },
 );
+// Private: only the service identity may read or write credential records.
+export const credentials = table(
+  { name: "credentials" },
+  { username: pk(), identity: ix(), appRole: s(), passwordHash: s(), salt: s(), token: s() },
+);
 export const pets = table(
   { name: "pets" },
   {
@@ -27,6 +32,7 @@ export const pets = table(
     age: s(),
     size: s(),
     microchip: s(),
+    gender: t.string().default("unknown"),
   },
 );
 const photoFields = () => ({
@@ -40,6 +46,9 @@ const photoFields = () => ({
 export const petPhotos = table({ name: "pet_photos" }, { ...photoFields(), petId: ix() });
 const petCareNotes = table({ name: "pet_care_notes" }, { petId: pk(), text: s() });
 export const reportPhotos = table({ name: "report_photos" }, { ...photoFields(), reportId: ix() });
+export const sceneAssessments = table({ name: "scene_assessments" }, {
+  reportId: pk(), environment: s(), visibleConcerns: s(), uncertainty: s(), createdAt: s(),
+});
 export const reports = table(
   { name: "reports" },
   {
@@ -122,6 +131,46 @@ export const cases = table(
     outcome: s(),
   },
 );
+export const caseFirstReviews = table(
+  { name: "case_first_reviews" },
+  { caseId: pk(), reviewedAt: s(), reviewerId: s() },
+);
+export const incidents = table(
+  { name: "incidents" },
+  { id: pk(), title: s(), hazard: s(), latitude: t.f64(), longitude: t.f64(), radiusKm: t.f64(), status: s(), createdBy: s(), createdAt: s() },
+);
+export const incidentCases = table(
+  { name: "incident_cases" },
+  { caseId: pk(), incidentId: ix(), linkedAt: s() },
+);
+export const responsePlans = table(
+  { name: "response_plans" },
+  { caseId: pk(), status: s(), suggestedShelterId: s(), reason: s(), steps: s(), evidence: s(), generatedAt: s(), reviewedBy: s(), reviewedAt: s() },
+);
+export const operationJobs = table({ name: "operation_jobs" }, {
+  caseId: pk(), version: t.u32(), trigger: s(), status: s(), runId: s(),
+  requestedAt: s(), leaseUntil: s(), retryAt: s(), attempts: t.u32(),
+});
+export const operationRuns = table({ name: "operation_runs" }, {
+  id: pk(), caseId: ix(), version: t.u32(), trigger: s(), status: s(),
+  startedAt: s(), completedAt: s(), steps: s(), recommendation: s(), error: s(),
+});
+export const shelterResources = table(
+  { name: "shelter_resources" },
+  { shelterId: pk(), species: s(), supplies: s(), foodUnits: t.u32(), crates: t.u32(), medicalKits: t.u32(), updatedAt: s() },
+);
+export const shelterAnimals = table(
+  { name: "shelter_animals" },
+  { id: pk(), shelterId: ix(), caseId: s(), species: s(), description: s(), status: s(), arrivedAt: s(), departedAt: s(), outcome: s() },
+);
+export const caseMessages = table(
+  { name: "case_messages" },
+  { id: pk(), caseId: ix(), senderId: s(), body: s(), createdAt: s() },
+);
+export const matchMessages = table(
+  { name: "match_messages" },
+  { id: pk(), matchId: ix(), senderId: s(), body: s(), createdAt: s() },
+);
 export const external = table(
   { name: "external_reports" },
   {
@@ -157,6 +206,14 @@ export const notifications = table(
     readAt: s(),
   },
 );
+export const pushDevices = table(
+  { name: "push_devices" },
+  { id: pk(), ownerId: ix(), token: s() },
+);
+export const pushDeliveries = table(
+  { name: "push_deliveries" },
+  { id: pk(), notificationId: ix(), deviceId: s(), status: s(), ticketId: s(), updatedAt: s() },
+);
 export const jobs = table(
   { name: "matching_jobs" },
   {
@@ -171,6 +228,7 @@ export const jobs = table(
   },
 );
 export const alerts = table({ name: "disaster_alerts" }, { id: pk(), document: s() });
+export const alertLocations = table({ name: "alert_locations" }, { ownerId: pk(), latitude: t.f64(), longitude: t.f64(), updatedAt: s() });
 export const simulations = table(
   { name: "simulation_runs" },
   {
@@ -208,10 +266,12 @@ export const events = table(
 const db = schema({
   grants,
   users,
+  credentials,
   pets,
   petPhotos,
   petCareNotes,
   reportPhotos,
+  sceneAssessments,
   reports,
   reportSummaries,
   requests,
@@ -220,11 +280,24 @@ const db = schema({
   staff,
   verifications,
   cases,
+  caseFirstReviews,
+  incidents,
+  incidentCases,
+  responsePlans,
+  operationJobs,
+  operationRuns,
+  shelterResources,
+  shelterAnimals,
+  caseMessages,
+  matchMessages,
   external,
   matches,
   notifications,
+  pushDevices,
+  pushDeliveries,
   jobs,
   alerts,
+  alertLocations,
   simulations,
   runs,
   events,

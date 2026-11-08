@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 
 import { choosePhotoSource } from '@/components/photos';
 import {
@@ -36,6 +36,7 @@ import { conditions, dateTime, speciesLabel } from '@/lib/format';
 import { uuid } from '@/lib/ids';
 import { useLive } from '@/lib/hooks';
 import { usePlace } from '@/lib/place';
+import { feedback, MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { uploadPhoto, type PickedImage } from '@/lib/uploads';
 import type { AgentAction, AgentResult, PendingAction, Pet } from '@/lib/types';
@@ -66,6 +67,7 @@ const starters = [
   'Are there weather alerts near me?',
   'Which shelters near me are accepting animals?',
 ];
+const enterMessage = FadeInUp.duration(180).reduceMotion(ReduceMotion.System);
 
 export default function Chat() {
   const params = useLocalSearchParams<{ prompt?: string; reportId?: string }>();
@@ -130,6 +132,7 @@ export default function Chat() {
         context: request.context,
       });
       const failed = result.status === 'failed';
+      if (failed) feedback('error');
       if (!failed) update({ previousRunId: result.runId });
       const summary =
         failed && /NVIDIA_(MODEL|API_KEY) is not configured/.test(result.summary)
@@ -147,6 +150,7 @@ export default function Chat() {
         },
       ]);
     } catch (e) {
+      feedback('error');
       setMessages((list) => [
         ...list.filter((m) => !(m.from === 'agent' && m.retry?.requestId === request.requestId)),
         { id: uuid(), from: 'agent', text: errorText(e), retry: request },
@@ -197,6 +201,7 @@ export default function Chat() {
         previousRunId,
       });
     } catch (e) {
+      feedback('error');
       setNotice(errorText(e));
     } finally {
       update({ uploading: false });
@@ -208,6 +213,7 @@ export default function Chat() {
       (a) => a.tool.startsWith('create_') && a.status === 'success' && a.resourceId,
     );
     update({ previousRunId: result.runId, photos: [], reportId: created?.resourceId });
+    if (created) feedback('success');
     setMessages((list) =>
       list.map((m) =>
         m.from === 'agent' && m.result?.runId === result.runId ? { ...m, text: result.summary, result } : m,
@@ -225,21 +231,21 @@ export default function Chat() {
         }}
       />
       <View style={local.bar}>
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="Back to PawSafe"
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           style={local.barIcon}
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+        </MotionPressable>
         <View style={local.nameplate}>
           <Image source={require('@/assets/doghead.png')} style={local.avatar} contentFit="contain" />
           <Text accessibilityRole="header" style={local.name}>
             Pawtricia
           </Text>
         </View>
-        <Pressable
+        <MotionPressable
           disabled={(!messages.length && !reportId) || sending || uploading}
           onPress={() => {
             reset();
@@ -253,7 +259,7 @@ export default function Chat() {
           style={[local.barIcon, !messages.length && !reportId && { opacity: 0.35 }]}
         >
           <Ionicons name="create-outline" size={21} color={colors.text} />
-        </Pressable>
+        </MotionPressable>
       </View>
       <KeyboardAvoidingView style={local.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView ref={scroll} contentContainerStyle={local.list} keyboardShouldPersistTaps="handled">
@@ -278,15 +284,15 @@ export default function Chat() {
               ) : null}
               <View style={local.starters}>
                 {starters.map((s) => (
-                  <Pressable
+                  <MotionPressable
                     key={s}
                     accessibilityRole="button"
                     onPress={() => send(s)}
                     disabled={sending || uploading}
-                    style={({ pressed }) => [local.starter, pressed && { opacity: 0.7 }]}
+                    style={local.starter}
                   >
                     <Text style={local.starterText}>{s}</Text>
-                  </Pressable>
+                  </MotionPressable>
                 ))}
               </View>
             </View>
@@ -324,18 +330,18 @@ export default function Chat() {
               <Toggle label="Only one animal in this photo" value={singleAnimal} onChange={setSingleAnimal} />
               <Muted>Single-animal photos can be compared with missing pets.</Muted>
             </View>
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityLabel="Remove attachment"
               disabled={uploading || sending}
               onPress={() => setAttachment(undefined)}
             >
               <Ionicons name="close-circle-outline" color={colors.muted} size={24} />
-            </Pressable>
+            </MotionPressable>
           </View>
         ) : null}
         <View style={local.composer}>
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             onPress={attach}
             disabled={uploading || sending}
@@ -344,7 +350,7 @@ export default function Chat() {
             hitSlop={6}
           >
             <Ionicons name={uploading ? 'hourglass-outline' : 'camera-outline'} size={24} color={colors.navy} />
-          </Pressable>
+          </MotionPressable>
           <TextInput
             value={text}
             onChangeText={setText}
@@ -358,7 +364,7 @@ export default function Chat() {
             submitBehavior="submit"
             returnKeyType="send"
           />
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             onPress={() => (attachment ? void sendPhoto() : send())}
             disabled={(!text.trim() && !attachment) || sending || uploading}
@@ -366,7 +372,7 @@ export default function Chat() {
             style={[local.send, ((!text.trim() && !attachment) || sending || uploading) && { opacity: 0.4 }]}
           >
             <Ionicons name="arrow-up" size={20} color={colors.white} />
-          </Pressable>
+          </MotionPressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -434,19 +440,19 @@ function Bubble({
 }) {
   if (message.from === 'user')
     return (
-      <View style={[local.bubble, local.user]}>
+      <Animated.View entering={enterMessage} style={[local.bubble, local.user]}>
         {message.photoUri ? (
           <Image source={{ uri: message.photoUri }} style={local.attachment} contentFit="cover" />
         ) : null}
         {message.text ? <Text style={local.userText}>{message.text}</Text> : null}
-      </View>
+      </Animated.View>
     );
   const result = message.result;
   const created = result?.actions.find(
     (a) => a.tool.startsWith('create_') && a.status === 'success' && a.resourceId,
   );
   return (
-    <View style={local.agentRow}>
+    <Animated.View entering={enterMessage} style={local.agentRow}>
       <Image source={require('@/assets/doghead.png')} style={local.avatar} contentFit="contain" />
       <View style={[local.bubble, local.agent, message.retry && local.failed]}>
         <RichText text={message.text} style={local.agentText} />
@@ -515,7 +521,7 @@ function Bubble({
         ) : null}
         {result?.status === 'completed' ? <SourceTag kind="ai" /> : null}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

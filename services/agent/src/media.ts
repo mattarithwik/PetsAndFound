@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { ApiError, setting, type Actor, type Photo } from "./db.js";
 import { eligibleExternalPhotos } from "./providers/common.js";
 
-const photoLimit = 8 * 1024 * 1024;
+const photoLimit = 10_000_000;
 function cloud() {
   return (
     "https://api.cloudinary.com/v1_1/" + encodeURIComponent(setting("CLOUDINARY_CLOUD_NAME")) + "/image/"
@@ -92,7 +92,7 @@ export async function readImage(url: string, allowedHosts: Set<string>) {
     }
     if (Number(response.headers.get("content-length") || 0) > photoLimit) {
       await response.body.cancel();
-      throw new ApiError(413, "Photo exceeds 8 MiB");
+      throw new ApiError(413, "Photo exceeds 10 MB");
     }
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
@@ -103,7 +103,7 @@ export async function readImage(url: string, allowedHosts: Set<string>) {
       bytes += part.value.byteLength;
       if (bytes > photoLimit) {
         await reader.cancel();
-        throw new ApiError(413, "Photo exceeds 8 MiB");
+        throw new ApiError(413, "Photo exceeds 10 MB");
       }
       chunks.push(part.value);
     }

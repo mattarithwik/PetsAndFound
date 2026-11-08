@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 
 import {
   Body,
@@ -32,10 +33,12 @@ import {
 import { capitalize } from '@/lib/format';
 import { useAction, useLive } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
+import { feedback, MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { readJson, writeJson } from '@/lib/storage';
 
 const midnight = '#172345';
+const enterResult = FadeInUp.duration(360).reduceMotion(ReduceMotion.System);
 
 function Banner({ title, caption, animal = 'dog' }: { title: string; caption: string; animal?: Animal }) {
   return (
@@ -96,6 +99,7 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
     await localHistory.refresh();
     setLocalRun(record);
     setRun(next);
+    if (next.completed) feedback('success');
   };
 
   const start = (animal: Animal) =>
@@ -118,7 +122,7 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
       await saveLocal({
         id: requestId.current,
         scenarioId: selected,
-        state: { animal, choices: [], edition: 2 },
+        state: { animal, choices: [], edition: 3 },
       });
     });
 
@@ -145,9 +149,9 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
       }
       const path = '/v1/simulations/' + run.id;
       try {
-        setRun(
-          await agent.post<ActiveDrill>(accountToken!, path + '/choices', { choiceId, revision: run.revision }),
-        );
+        const next = await agent.post<ActiveDrill>(accountToken!, path + '/choices', { choiceId, revision: run.revision });
+        setRun(next);
+        if (next.completed) feedback('success');
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) setRun(await agent.get<ActiveDrill>(accountToken!, path));
         throw e;
@@ -203,31 +207,32 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
           <SectionTitle>Choose a situation</SectionTitle>
           <View style={s.grid}>
             {hazards.map((hazard) => (
-              <Pressable
+              <MotionPressable
                 key={hazard}
                 accessibilityRole="button"
+                feedback="selection"
                 onPress={() => pick(hazard)}
                 accessibilityLabel={sceneArt[hazard].title}
-                style={({ pressed }) => [s.tile, { width: tileWidth }, pressed && s.pressed]}
+                style={[s.tile, { width: tileWidth }]}
               >
                 <Image source={sceneArt[hazard].image} style={s.tileScene} contentFit="cover" />
                 <View style={s.tileFooter}>
                   <Text style={s.tileTitle}>{sceneArt[hazard].title}</Text>
                   <Ionicons name="arrow-forward" size={17} color={colors.navy} />
                 </View>
-              </Pressable>
+              </MotionPressable>
             ))}
           </View>
           {past.length > 0 && <SectionTitle>Practice history</SectionTitle>}
           {past.slice(0, 12).map(({ record, local }) => {
             const snapshot = replay(record);
             return (
-              <Pressable
+              <MotionPressable
                 key={(local ? 'local' : 'account') + record.id}
                 accessibilityRole="button"
                 disabled={!!busy}
                 onPress={() => resume(record, local)}
-                style={({ pressed }) => [s.past, pressed && s.pressed]}
+                style={s.past}
               >
                 <Image source={sceneArt[record.scenarioId].image} style={s.thumbnail} />
                 <View style={s.grow}>
@@ -240,7 +245,7 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
                   </Muted>
                 </View>
                 <Ionicons name="chevron-forward" color={colors.navy} size={18} />
-              </Pressable>
+              </MotionPressable>
             );
           })}
           <ErrorNote error={error} />
@@ -260,19 +265,19 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
           <SectionTitle>Choose your companion</SectionTitle>
           <View style={s.grid}>
             {animals.map((a) => (
-              <Pressable
+              <MotionPressable
                 key={a}
                 accessibilityRole="button"
                 accessibilityLabel={'Play as ' + a}
                 disabled={!!busy}
                 onPress={() => start(a)}
-                style={({ pressed }) => [s.companion, { width: tileWidth }, pressed && s.pressed]}
+                style={[s.companion, { width: tileWidth }]}
               >
                 <Image source={companions[a].image} style={s.companionImage} contentFit="contain" />
                 <Text style={s.tileTitle}>
                   {busy === 'start' && startingAnimal === a ? 'Starting…' : capitalize(a)}
                 </Text>
-              </Pressable>
+              </MotionPressable>
             ))}
           </View>
           <Muted>
@@ -326,28 +331,29 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
               </Text>
               <Text style={s.story}>{run.scene.title}</Text>
               {run.scene.choices.map((c) => (
-                <Pressable
+                <MotionPressable
                   key={c.id}
                   accessibilityRole="button"
                   disabled={!!busy}
+                  feedback="selection"
                   onPress={() => choose(c.id)}
-                  style={({ pressed }) => [s.choice, pressed && s.pressed]}
+                  style={s.choice}
                 >
                   <Text style={s.choiceLabel}>{c.label}</Text>
                   <Ionicons name="arrow-forward-circle-outline" color={colors.navy} size={22} />
-                </Pressable>
+                </MotionPressable>
               ))}
             </>
           ) : (
             <>
-              <View style={s.results}>
+              <Animated.View entering={enterResult} style={s.results}>
                 <Text style={s.kicker}>DRILL COMPLETE</Text>
                 <Text style={s.score}>
                   {run.score}
                   <Text style={s.scoreTotal}> / 100</Text>
                 </Text>
                 <Text style={s.bannerCaption}>Your preparedness score</Text>
-              </View>
+              </Animated.View>
               <Row>
                 <Stat label="Pet safety" value={run.metrics.petSafety} tone="success" />
                 <Stat label="Preparedness" value={run.metrics.preparedness} tone="warning" />

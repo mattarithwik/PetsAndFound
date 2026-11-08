@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { MatchCard } from '@/components/cards';
+import { CaseConversation } from '@/components/case-conversation';
 import { RemotePhoto } from '@/components/photos';
 import { PinMap } from '@/components/pin-map';
 import { Badge, Body, Button, Card, Empty, ErrorNote, KeyValue, Loading, Muted, Notice, Row, Screen, SectionTitle, SourceTag, Title } from '@/components/ui';
@@ -115,6 +116,12 @@ export default function ReportDetail() {
           ))}
         </View>
       ) : null}
+      {rescue?.assessment ? <Card tone="info">
+        <Muted>PawTricia camera observations</Muted>
+        <Body>{rescue.assessment.environment}</Body>
+        {rescue.assessment.visibleConcerns.map((item, index) => <Muted key={index}>• {item}</Muted>)}
+        <Muted>{rescue.assessment.uncertainty}</Muted>
+      </Card> : null}
 
       {rescue ? (
         <Card tone="info">
@@ -127,6 +134,7 @@ export default function ReportDetail() {
           {rescue.outcome ? <Body>Outcome: {rescue.outcome}</Body> : null}
         </Card>
       ) : null}
+      {rescue?.shelterId ? <CaseConversation caseId={rescue.id} /> : null}
       {isOpen && mine && !rescue && report.type === 'lost' ? (
         <Button label="Request shelter follow-up" icon="business-outline" variant="outline" loading={busy === 'case'} onPress={() =>
           run('case', async () => {

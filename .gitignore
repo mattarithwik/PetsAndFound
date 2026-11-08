@@ -11,3 +11,4 @@ __pycache__/
 .spacetime/
 *.sqlite*
 *.log
+.demo-incident.json
