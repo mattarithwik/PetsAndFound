@@ -98,7 +98,7 @@ export function Hero({ title, subtitle, right }: { title: string; subtitle?: str
   return (
     <View style={styles.hero}>
       <View style={styles.flex}>
-        <Text style={styles.heroTitle}>{title}</Text>
+        <Text accessibilityRole="header" style={styles.heroTitle}>{title}</Text>
         {subtitle ? <Text style={styles.heroSubtitle}>{subtitle}</Text> : null}
       </View>
       {right}
@@ -119,13 +119,13 @@ export function Card({ children, onPress, style, tone }: { children: ReactNode; 
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <View style={styles.sectionRow}>
-      <Text style={styles.sectionTitle}>{children}</Text>
+      <Text accessibilityRole="header" style={styles.sectionTitle}>{children}</Text>
       {action}
     </View>
   );
 }
 
-export const Title = ({ children }: { children: ReactNode }) => <Text style={styles.title}>{children}</Text>;
+export const Title = ({ children }: { children: ReactNode }) => <Text accessibilityRole="header" style={styles.title}>{children}</Text>;
 export const Body = ({ children, style }: { children: ReactNode; style?: object }) => <Text style={[styles.body, style]}>{children}</Text>;
 export const Muted = ({ children, style }: { children: ReactNode; style?: object }) => <Text style={[styles.muted, style]}>{children}</Text>;
 export const Strong = ({ children }: { children: ReactNode }) => <Text style={styles.strong}>{children}</Text>;
@@ -146,6 +146,7 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
   return (
     <MotionPressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
@@ -171,7 +172,8 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
       <Text style={styles.label}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor="#8CA0B0"
+        accessibilityHint={hint}
+        placeholderTextColor={colors.muted}
         {...props}
         style={[styles.input, props.multiline && styles.inputMultiline, props.style]}
       />
@@ -191,6 +193,7 @@ export function Chips<T extends string>({ label, options, value, onChange }: { l
             <MotionPressable
               key={option.value}
               accessibilityRole="button"
+              accessibilityLabel={label ? `${label}: ${option.label}` : option.label}
               accessibilityState={{ selected }}
               feedback={selected ? 'none' : 'selection'}
               onPress={() => { if (!selected) onChange(option.value); }}
@@ -256,7 +259,7 @@ export function ErrorNote({ error, onRetry }: { error?: string; onRetry?: () => 
   useEffect(() => { if (error) feedback('error'); }, [error]);
   if (!error) return null;
   return (
-    <Animated.View entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}>
+    <Animated.View accessibilityRole="alert" accessibilityLiveRegion="polite" entering={FadeInDown.duration(180).reduceMotion(ReduceMotion.System)}>
       <Notice tone="danger" title={onRetry ? 'Something went wrong' : undefined}>
         <Text style={styles.body}>{error}</Text>
         {onRetry ? <Button label="Try again" variant="ghost" compact onPress={onRetry} style={styles.alignStart} /> : null}
@@ -360,7 +363,7 @@ export const styles = StyleSheet.create({
   card: { backgroundColor: colors.white, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.border, gap: 6 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.5 },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 10 },
   sectionTitle: { flexShrink: 1, fontFamily: displayFont, fontSize: 24, letterSpacing: -0.7, fontWeight: 'bold', color: colors.text },
   title: { fontFamily: displayFont, fontSize: 29, letterSpacing: -0.8, fontWeight: 'bold', color: colors.text },
   body: { fontSize: 15, lineHeight: 21, color: colors.text },
@@ -376,10 +379,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  buttonCompact: { minHeight: 36, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 11 },
+  buttonCompact: { minHeight: 44, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 11 },
   buttonOutline: { borderWidth: 2, borderColor: colors.sky, backgroundColor: colors.white },
   buttonGhost: { backgroundColor: colors.pale },
-  buttonText: { fontSize: 16, fontWeight: '700' },
+  buttonText: { fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   buttonTextCompact: { fontSize: 14 },
   field: { gap: 6 },
   label: { fontSize: 14, fontWeight: '700', color: colors.text },
@@ -396,7 +399,7 @@ export const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1.5, borderColor: colors.baby, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.white },
+  chip: { minHeight: 44, justifyContent: 'center', borderWidth: 1.5, borderColor: colors.baby, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.white },
   chipSelected: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipText: { color: colors.text, fontWeight: '600' },
   chipTextSelected: { color: colors.white },
@@ -406,12 +409,12 @@ export const styles = StyleSheet.create({
   notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: 14, alignItems: 'flex-start' },
   empty: { alignItems: 'center', gap: 6, paddingVertical: 22, paddingHorizontal: 12 },
   kv: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 4 },
-  kvLabel: { color: colors.muted, fontSize: 14 },
+  kvLabel: { color: colors.muted, fontSize: 14, flexShrink: 1 },
   kvValue: { color: colors.text, fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   listIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.pale, alignItems: 'center', justifyContent: 'center' },
   link: { color: colors.navy, fontSize: 13, textDecorationLine: 'underline' },
-  linkPress: { alignSelf: 'flex-start', maxWidth: '100%' },
+  linkPress: { alignSelf: 'flex-start', maxWidth: '100%', minHeight: 44, justifyContent: 'center' },
   row: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   stat: { flex: 1, minWidth: 92, borderRadius: 16, padding: 12, gap: 2 },
   statValue: { fontSize: 24, fontWeight: '800' },

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { CaseCard } from '@/components/cards';
-import { Chips, Empty, ErrorNote, Hero, Loading, Muted, Notice, Screen } from '@/components/ui';
+import { Button, Chips, Empty, ErrorNote, Hero, Loading, Muted, Notice, Screen } from '@/components/ui';
 import { priorityRank } from '@/lib/format';
 import { activeStatuses, useShelter, useShelterOps } from '@/lib/shelter';
 import type { QueuedCase, RescueCase } from '@/lib/types';
@@ -24,6 +24,7 @@ export default function Cases() {
         <Notice tone="warning" title="Verification required">
           Only verified shelter staff can review, accept and transfer rescue cases. Check your verification status in Settings.
         </Notice>
+        <Button label="View verification in Settings" variant="outline" onPress={() => router.push('/settings')} />
       </Screen>
     );
 
@@ -56,7 +57,7 @@ export default function Cases() {
       </Muted>
       <ErrorNote error={ops.error} onRetry={ops.refresh} />
       {ops.loading && !ops.data ? <Loading /> : null}
-      {ops.data && !rows.length ? <Empty icon="file-tray-outline" title="Nothing here" /> : null}
+      {ops.data && !rows.length ? <Empty icon="file-tray-outline" title={view === 'incoming' ? 'No incoming cases' : view === 'ours' ? 'No active cases' : 'No closed cases'} body={view === 'incoming' ? 'New unassigned reports will appear here.' : view === 'ours' ? 'Accept an incoming case to start coordinating care.' : 'Resolved and cancelled cases will appear here.'} /> : null}
       {rows.map((c) => (
         <CaseCard key={c.id} item={c} onPress={() => router.push(`/cases/${c.id}`)} />
       ))}

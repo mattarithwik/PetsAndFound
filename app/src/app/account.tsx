@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { Platform, Text } from 'react-native';
 
 import { Button, Card, ErrorNote, Field, Muted, Notice, Screen, SectionTitle, Strong } from '@/components/ui';
-import { config } from '@/lib/config';
 import { db } from '@/lib/api';
 import { useAction } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
@@ -98,9 +97,6 @@ export default function Account() {
         <Muted>Your user ID (safe to share with a shelter manager)</Muted>
         <Strong>{profile?.id}</Strong>
       </Card>
-      <Muted>
-        Connected to {config.spacetimeUrl} ({config.database}) and {config.agentUrl}
-      </Muted>
     </Screen>
   );
 }

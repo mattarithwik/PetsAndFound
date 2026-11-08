@@ -168,6 +168,8 @@ export default function FoundReport() {
   return (
     <Screen key="form">
       <Stack.Screen options={{ title: 'Report a found animal' }} />
+      <Chips label="Condition" value={draft.condition} onChange={(condition) => update({ condition })} options={conditions} />
+      {guidance}
       <SectionTitle>Photos</SectionTitle>
       <Button label={cameraOpen ? 'Close scene assist' : 'Open scene assist'} variant="outline" icon="camera-outline" onPress={() => setCameraOpen(!cameraOpen)} />
       {cameraOpen ? <CameraAssist condition={draft.condition} onPhoto={(image) => { setImage(0, image); setCameraOpen(false); }} onAssessment={(assessment) => update({ assessment: { environment: assessment.environment, visibleConcerns: assessment.visibleConcerns, uncertainty: assessment.uncertainty } })} /> : null}
@@ -178,7 +180,7 @@ export default function FoundReport() {
         ))}
       </Row>
       {draft.images.length ? <Button label="Remove last photo" compact variant="ghost" disabled={!!busy} onPress={() => update({ images: draft.images.slice(0, -1), uploaded: draft.uploaded.slice(0, -1) })} /> : null}
-      <Toggle label="Photos show only this animal" value={draft.singleAnimal} onChange={(singleAnimal) => update({ singleAnimal })} />
+      {draft.images.length ? <Toggle label="Photos show only this animal" value={draft.singleAnimal} onChange={(singleAnimal) => update({ singleAnimal })} /> : null}
       <Chips
         label="Species"
         value={draft.species}
@@ -197,8 +199,6 @@ export default function FoundReport() {
           <Field label="Colors" value={draft.colors} onChangeText={(colors) => update({ colors })} placeholder="black, white" />
         </View>
       </View>
-      <Chips label="Condition" value={draft.condition} onChange={(condition) => update({ condition })} options={conditions} />
-      {guidance}
       <Chips label="When did you find them?" value={draft.since} onChange={(since) => update({ since })} options={sinceOptions} />
       <LocationPicker label="Where did you find them?" value={draft.place} onChange={(p) => update({ place: p })} />
       <Field label="Notes for responders" value={draft.description} onChangeText={(description) => update({ description })} multiline placeholder="Friendly, limping on back leg, near the park entrance" />
@@ -212,6 +212,6 @@ export default function FoundReport() {
 
 const local = StyleSheet.create({
   preview: { flex: 1, aspectRatio: 1, borderRadius: 14 },
-  pair: { flexDirection: 'row', gap: 10 },
-  half: { flex: 1 },
+  pair: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  half: { flex: 1, minWidth: 140 },
 });

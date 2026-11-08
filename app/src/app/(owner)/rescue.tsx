@@ -178,10 +178,10 @@ export default function Rescue() {
 
       {section === 'reports' ? (
         <>
-          <SectionTitle>Possible matches</SectionTitle>
+          {open.length || matches.length ? <SectionTitle>Possible matches</SectionTitle> : null}
           {mine.loading && !mine.data ? <Loading /> : null}
           <ErrorNote error={mine.error} onRetry={mine.refresh} />
-          {mine.data && !matches.length ? (
+          {mine.data && open.length > 0 && !matches.length ? (
             <Empty
               icon="images-outline"
               title="No possible matches yet"
@@ -193,7 +193,7 @@ export default function Rescue() {
           ))}
 
           <SectionTitle>Your reports</SectionTitle>
-          {mine.data && !open.length ? <Muted>You have no open reports.</Muted> : null}
+          {mine.data && !open.length ? <Empty icon="paw-outline" title="No open reports" body="Use the lost or found pet actions above to start a report. Your search updates and possible matches will appear here." /> : null}
           {open.map((r) => (
             <ReportCard key={r.id} report={r} petName={petName(r)} />
           ))}
@@ -334,7 +334,7 @@ export default function Rescue() {
 
 function ActionCard({ title, detail, icon, onPress }: { title: string; detail: string; icon: IconName; onPress: () => void }) {
   return (
-    <MotionPressable accessibilityRole="button" onPress={onPress} style={local.action}>
+    <MotionPressable accessibilityRole="button" accessibilityLabel={`${title}. ${detail}`} onPress={onPress} style={local.action}>
       <View style={local.actionIcons}>
         <Ionicons name={icon} color={colors.navy} size={24} />
         <Ionicons name="arrow-forward" size={17} color={colors.navy} />

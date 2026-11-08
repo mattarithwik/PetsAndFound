@@ -12,6 +12,7 @@ export function ChatFab({ header = false }: { header?: boolean }) {
     <MotionPressable
       accessibilityRole="button"
       accessibilityLabel="Ask Pawtricia"
+      accessibilityHint="Opens your PawSafe assistant"
       onPress={() => router.push('/chat')}
       style={header ? local.header : [local.fab, { bottom: 72 + insets.bottom }]}
     >
@@ -26,22 +27,22 @@ const local = StyleSheet.create({
     right: 16,
     width: 58,
     height: 58,
-    borderRadius: 29,
+    borderRadius: 18,
     backgroundColor: colors.navy,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowColor: colors.text,
+    shadowOpacity: 0.14,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 5,
   },
   header: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 21,
+    borderRadius: 14,
     backgroundColor: colors.pale,
     marginHorizontal: 6,
   },

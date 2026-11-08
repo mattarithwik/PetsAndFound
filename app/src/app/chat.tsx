@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
   type ScrollViewInstance,
+  type TextInputInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
@@ -22,6 +23,7 @@ import {
   Card,
   colors,
   displayFont,
+  type IconName,
   KeyValue,
   Muted,
   Notice,
@@ -61,11 +63,11 @@ const toolLabels: Record<string, string> = {
   get_simulation_feedback: 'Reviewed simulation',
 };
 
-const starters = [
-  'I lost my dog',
-  'I found a stray cat',
-  'Are there weather alerts near me?',
-  'Which shelters near me are accepting animals?',
+const starters: { label: string; prompt: string; icon: IconName }[] = [
+  { label: 'Find a missing pet', prompt: 'I lost my pet. Help me with the next steps.', icon: 'search-outline' },
+  { label: 'Help a found animal', prompt: 'I found a stray animal. What should I do next?', icon: 'paw-outline' },
+  { label: 'Check local alerts', prompt: 'Are there weather alerts near me?', icon: 'cloud-outline' },
+  { label: 'Find nearby shelters', prompt: 'Which shelters near me are accepting animals?', icon: 'business-outline' },
 ];
 const enterMessage = FadeInUp.duration(180).reduceMotion(ReduceMotion.System);
 
@@ -90,6 +92,7 @@ export default function Chat() {
   const [text, setText] = useState(params.prompt ?? '');
   const [notice, setNotice] = useState<string>();
   const scroll = useRef<ScrollViewInstance>(null);
+  const composerInput = useRef<TextInputInstance>(null);
 
   useEffect(() => {
     if (params.prompt) setText(params.prompt);
@@ -233,17 +236,18 @@ export default function Chat() {
       <View style={local.bar}>
         <MotionPressable
           accessibilityRole="button"
-          accessibilityLabel="Back to PawSafe"
+          accessibilityLabel="Close Pawtricia"
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           style={local.barIcon}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="close" size={24} color={colors.text} />
         </MotionPressable>
         <View style={local.nameplate}>
           <Image source={require('@/assets/doghead.png')} style={local.avatar} contentFit="contain" />
-          <Text accessibilityRole="header" style={local.name}>
-            Pawtricia
-          </Text>
+          <View>
+            <Text accessibilityRole="header" style={local.name}>Pawtricia</Text>
+            <Text style={local.subtitle}>Your PawSafe assistant</Text>
+          </View>
         </View>
         <MotionPressable
           disabled={(!messages.length && !reportId) || sending || uploading}
@@ -256,6 +260,7 @@ export default function Chat() {
           }}
           accessibilityRole="button"
           accessibilityLabel="Start a new conversation"
+          accessibilityState={{ disabled: (!messages.length && !reportId) || sending || uploading }}
           style={[local.barIcon, !messages.length && !reportId && { opacity: 0.35 }]}
         >
           <Ionicons name="create-outline" size={21} color={colors.text} />
@@ -274,8 +279,7 @@ export default function Chat() {
           ) : null}
           {!messages.length ? (
             <View style={local.intro}>
-              <Image source={require('@/assets/doghead.png')} style={local.avatarLarge} contentFit="contain" />
-              <Text style={local.hello}>How can I help?</Text>
+              <Text accessibilityRole="header" style={local.hello}>How can I help?</Text>
               <Muted style={{ textAlign: 'center', maxWidth: 410 }}>
                 Tell me about a missing pet, check nearby shelters, or ask about weather alerts in your area.
               </Muted>
@@ -285,13 +289,20 @@ export default function Chat() {
               <View style={local.starters}>
                 {starters.map((s) => (
                   <MotionPressable
-                    key={s}
+                    key={s.label}
                     accessibilityRole="button"
-                    onPress={() => send(s)}
+                    accessibilityState={{ disabled: sending || uploading }}
+                    accessibilityHint="Adds a suggested message for you to edit and send"
+                    onPress={() => {
+                      setText(s.prompt);
+                      composerInput.current?.focus();
+                    }}
                     disabled={sending || uploading}
                     style={local.starter}
                   >
-                    <Text style={local.starterText}>{s}</Text>
+                    <Ionicons name={s.icon} size={20} color={colors.navy} />
+                    <Text style={local.starterText}>{s.label}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.muted} />
                   </MotionPressable>
                 ))}
               </View>
@@ -313,7 +324,7 @@ export default function Chat() {
             />
           ))}
           {sending ? (
-            <View style={[local.bubble, local.agent]}>
+            <View accessibilityLiveRegion="polite" style={[local.bubble, local.agent]}>
               <Muted>Pawtricia is checking sources…</Muted>
             </View>
           ) : null}
@@ -333,6 +344,8 @@ export default function Chat() {
             <MotionPressable
               accessibilityRole="button"
               accessibilityLabel="Remove attachment"
+              accessibilityState={{ disabled: uploading || sending }}
+              style={local.iconButton}
               disabled={uploading || sending}
               onPress={() => setAttachment(undefined)}
             >
@@ -346,12 +359,14 @@ export default function Chat() {
             onPress={attach}
             disabled={uploading || sending}
             accessibilityLabel="Attach a photo"
+            accessibilityState={{ disabled: uploading || sending }}
             style={local.iconButton}
             hitSlop={6}
           >
             <Ionicons name={uploading ? 'hourglass-outline' : 'camera-outline'} size={24} color={colors.navy} />
           </MotionPressable>
           <TextInput
+            ref={composerInput}
             value={text}
             onChangeText={setText}
             placeholder="Message Pawtricia"
@@ -368,7 +383,8 @@ export default function Chat() {
             accessibilityRole="button"
             onPress={() => (attachment ? void sendPhoto() : send())}
             disabled={(!text.trim() && !attachment) || sending || uploading}
-            accessibilityLabel="Send"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: (!text.trim() && !attachment) || sending || uploading, busy: sending || uploading }}
             style={[local.send, ((!text.trim() && !attachment) || sending || uploading) && { opacity: 0.4 }]}
           >
             <Ionicons name="arrow-up" size={20} color={colors.white} />
@@ -438,6 +454,7 @@ function Bubble({
   busy: boolean;
   onSkip: () => void;
 }) {
+  const [showSources, setShowSources] = useState(false);
   if (message.from === 'user')
     return (
       <Animated.View entering={enterMessage} style={[local.bubble, local.user]}>
@@ -458,7 +475,18 @@ function Bubble({
         <RichText text={message.text} style={local.agentText} />
         {result?.actions.length ? (
           <View style={local.actions}>
-            {result.actions.map((a, i) => (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel="Sources and activity"
+              accessibilityState={{ expanded: showSources }}
+              onPress={() => setShowSources((value) => !value)}
+              style={local.sourcesToggle}
+            >
+              <Ionicons name="list-outline" size={16} color={colors.navy} />
+              <Text style={local.sourceLabel}>Sources and activity</Text>
+              <Ionicons name={showSources ? 'chevron-up' : 'chevron-down'} size={16} color={colors.navy} />
+            </MotionPressable>
+            {showSources && result.actions.map((a, i) => (
               <View key={i}>
                 <Row>
                   <Ionicons
@@ -626,21 +654,26 @@ function Preview({
 }
 
 const local = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.sky },
+  screen: { flex: 1, backgroundColor: colors.bg },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 740,
     alignSelf: 'center',
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.white,
   },
   barIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#D9EEFF',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.pale,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -648,44 +681,44 @@ const local = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    backgroundColor: colors.pale,
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    flex: 1,
   },
-  name: { color: colors.text, fontSize: 24, fontWeight: '800', letterSpacing: -1 },
+  name: { color: colors.text, fontSize: 20, fontWeight: '700' },
+  subtitle: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   sheet: {
     flex: 1,
     alignSelf: 'center',
-    width: '96%',
+    width: '100%',
     maxWidth: 740,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.bg,
     overflow: 'hidden',
   },
-  hello: { fontFamily: displayFont, fontSize: 36, fontWeight: 'bold', letterSpacing: -1, color: colors.text },
+  hello: { fontFamily: displayFont, fontSize: 30, fontWeight: 'bold', letterSpacing: -1, color: colors.text },
   flex: { flex: 1 },
   list: { padding: 16, gap: 10, paddingBottom: 24 },
-  intro: { alignItems: 'center', gap: 12, paddingVertical: 30 },
-  avatarLarge: { width: 72, height: 72 },
+  intro: { alignItems: 'center', gap: 12, paddingVertical: 28 },
   avatar: { width: 28, height: 28, marginTop: 4 },
-  starters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 },
+  starters: { width: '100%', maxWidth: 440, gap: 10, marginTop: 12 },
   starter: {
-    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 52,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.baby,
+    borderColor: colors.border,
     backgroundColor: colors.white,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  starterText: { color: colors.navy, fontWeight: '600' },
-  bubble: { borderRadius: 18, padding: 12, maxWidth: '85%', gap: 8 },
+  starterText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '600' },
+  bubble: { borderRadius: 18, padding: 12, maxWidth: '100%', gap: 8 },
   user: {
     alignSelf: 'flex-end',
-    backgroundColor: colors.white,
-    borderColor: colors.sky,
-    borderWidth: 1.5,
+    maxWidth: '88%',
+    backgroundColor: colors.pale,
+    borderColor: colors.baby,
+    borderWidth: 1,
     borderBottomRightRadius: 4,
   },
   userText: { color: colors.navy, fontSize: 16, lineHeight: 22 },
@@ -699,11 +732,13 @@ const local = StyleSheet.create({
   },
   thumbnail: { width: 54, height: 54, borderRadius: 10 },
   agentRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  agent: { backgroundColor: colors.pale, borderBottomLeftRadius: 4, flexShrink: 1 },
+  agent: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4, flexShrink: 1 },
   failed: { borderColor: colors.danger, backgroundColor: colors.dangerBg },
   agentText: { color: colors.text, fontSize: 16, lineHeight: 22 },
   actions: { gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
-  actionText: { color: colors.muted, fontSize: 13 },
+  actionText: { color: colors.muted, fontSize: 13, flexShrink: 1 },
+  sourcesToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  sourceLabel: { flex: 1, color: colors.navy, fontSize: 13, fontWeight: '600' },
   noticeBar: { paddingHorizontal: 16 },
   composer: {
     flexDirection: 'row',
@@ -714,7 +749,7 @@ const local = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.white,
   },
-  iconButton: { padding: 8 },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   input: {
     flex: 1,
     minHeight: 42,
@@ -728,9 +763,9 @@ const local = StyleSheet.create({
     color: colors.text,
   },
   send: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: colors.navy,
     alignItems: 'center',
     justifyContent: 'center',

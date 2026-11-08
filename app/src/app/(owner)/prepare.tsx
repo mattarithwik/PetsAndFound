@@ -77,7 +77,7 @@ function Kit({ owner }: { owner: string }) {
     <View style={local.track}><Animated.View layout={LinearTransition.duration(220).reduceMotion(ReduceMotion.System)} style={[local.progress, { width: `${done.length / kitItems.length * 100}%` }]} /></View>
     <ErrorNote error={error} />
     <Card>{kitItems.map((item, index) => (
-      <MotionPressable key={item} disabled={!ready} feedback="selection" onPress={() => toggle(index)} style={local.check} accessibilityRole="checkbox" accessibilityState={{ checked: done.includes(index) }}>
+      <MotionPressable key={item} disabled={!ready} feedback="selection" onPress={() => toggle(index)} style={local.check} accessibilityRole="checkbox" accessibilityLabel={item} accessibilityState={{ checked: done.includes(index), disabled: !ready }}>
         <Ionicons name={done.includes(index) ? 'checkbox' : 'square-outline'} size={22} color={colors.navy} />
         <Body style={[{ flex: 1 }, done.includes(index) && local.checked]}>{item}</Body>
       </MotionPressable>
@@ -180,7 +180,7 @@ const local = StyleSheet.create({
   heroTitle: { fontSize: 34, lineHeight: 37, fontFamily: Platform.select({ ios: 'Georgia', web: 'Georgia', default: 'serif' }), fontWeight: 'bold', color: '#112F46', letterSpacing: -0.7 },
   sub: { color: '#34516A', fontSize: 14, lineHeight: 20 },
   location: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8 },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 11, minHeight: 44 },
   checked: { color: colors.muted, textDecorationLine: 'line-through' },
   track: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
   progress: { height: '100%', backgroundColor: colors.navy },

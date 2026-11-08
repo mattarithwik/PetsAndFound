@@ -16,7 +16,7 @@ export default function Profile() {
 
   return (
     <Screen edges={['top']} bottomInset={120}>
-      <SectionTitle action={<Button label="Add pet" icon="add" compact onPress={() => router.push('/pets/new')} />}>My pets</SectionTitle>
+      <SectionTitle action={pets.data?.length ? <Button label="Add pet" icon="add" compact onPress={() => router.push('/pets/new')} /> : undefined}>My pets</SectionTitle>
       {pets.loading && !pets.data ? <Loading /> : null}
       <ErrorNote error={pets.error} onRetry={pets.refresh} />
       {pets.data && !pets.data.length ? <>

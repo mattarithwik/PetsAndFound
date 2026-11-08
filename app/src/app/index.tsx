@@ -21,8 +21,13 @@ export default function Index() {
           loading={retrying}
           onPress={async () => {
             setRetrying(true);
-            await refresh().catch(() => undefined);
-            setRetrying(false);
+            try {
+              await refresh();
+            } catch {
+              // Keep the offline recovery options available when retry fails.
+            } finally {
+              setRetrying(false);
+            }
           }}
         />
         <Button label="Sign out" variant="ghost" onPress={signOut} />
@@ -34,7 +39,7 @@ export default function Index() {
 }
 
 const local = StyleSheet.create({
-  splash: { flex: 1, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
+  splash: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
   logo: { width: 140, height: 120 },
-  text: { color: colors.white, fontSize: 16, textAlign: 'center', lineHeight: 22 },
+  text: { maxWidth: 440, color: colors.text, fontSize: 16, textAlign: 'center', lineHeight: 22 },
 });
