@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { Button, Card, Chips, Empty, ErrorNote, Field, Hero, Loading, Muted, Notice, Screen, SectionTitle, Stat, Strong } from '@/components/ui';
 import { db } from '@/lib/api';
@@ -10,6 +10,7 @@ import { uuid } from '@/lib/ids';
 import { feedback } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { useShelter } from '@/lib/shelter';
+import { RemotePhoto } from '@/components/photos';
 import type { Incident, IncidentBoard } from '@/lib/types';
 
 const hazards = [
@@ -46,6 +47,8 @@ export default function Command() {
     Math.max(0, (Date.parse(c.firstReviewedAt) - Date.parse(c.createdAt)) / 60_000)).sort((a, b) => a - b);
   const medianReview = reviewMinutes.length ? reviewMinutes[Math.floor(reviewMinutes.length / 2)] : null;
   const duplicateCount = rows.filter((c) => c.possibleDuplicateOf).length;
+  const photographed = rows.filter((c) => c.photoId);
+  const visualMatches = rows.reduce((sum, c) => sum + c.visualMatchCount, 0);
   const create = () => run('create', async () => {
     const shelter = active?.shelter;
     if (!shelter) throw new Error('Your shelter needs a location to start an incident.');
@@ -60,10 +63,10 @@ export default function Command() {
     feedback('success');
   });
 
-  if (!verified) return <Screen edges={['top']}><Hero title="Incident command" /><Notice tone="warning">Verified shelter staff can coordinate incidents.</Notice></Screen>;
+  if (!verified) return <Screen edges={['top']} bottomInset={120}><Hero title="Incidents" /><Notice tone="warning">Verified shelter staff can coordinate incidents.</Notice></Screen>;
   return (
-    <Screen edges={['top']} onRefresh={() => Promise.all([incidents.refresh(), board.refresh()])}>
-      <Hero title="Incident command" subtitle="Keep every disaster case in view" />
+    <Screen edges={['top']} bottomInset={120} onRefresh={() => Promise.all([incidents.refresh(), board.refresh()])}>
+      <Hero title="Incidents" />
       <Button label={creating ? 'Cancel new incident' : 'Start an incident'} icon="add-circle-outline" variant="outline" onPress={() => setCreating(!creating)} />
       {creating ? <Card>
         <Field label="Incident name" value={title} onChangeText={setTitle} placeholder="North side flooding" maxLength={160} />
@@ -85,9 +88,27 @@ export default function Command() {
           <Stat label="Urgent unassigned" value={urgentUnassigned.length} tone={urgentUnassigned.length ? 'danger' : 'success'} />
           <Stat label="No update 15m+" value={noRecentUpdate.length} tone={noRecentUpdate.length ? 'danger' : 'success'} />
           <Stat label="Possible duplicates" value={duplicateCount} tone="info" />
+          <Stat label="Reports with photos" value={photographed.length} tone="info" />
+          <Stat label="Visual match candidates" value={visualMatches} tone="info" />
           <Stat label="Resolved" value={rows.length - unresolved.length} tone="success" />
         </View>
         <Muted>First review measures report creation to first staff review or assignment ({reviewMinutes.length} reviewed). No update uses the case's last update.</Muted>
+        {photographed.length ? <>
+          <SectionTitle>Case photos</SectionTitle>
+          <Muted>SIMULATED reports use Oxford-IIIT Pet dataset images under CC BY-SA 4.0. A photo does not establish an injury or identity.</Muted>
+          <Button label="Dataset and image credit" variant="outline" compact onPress={() => void Linking.openURL('https://www.robots.ox.ac.uk/~vgg/data/pets/')} />
+          {photographed.slice(0, 8).map((c) => <Card key={`photo-${c.id}`}>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <RemotePhoto photoId={c.photoId} style={{ width: 88, height: 88 }} />
+              <View style={{ flex: 1 }}>
+                <Strong>{c.priority.toUpperCase()} · {c.summary?.species ?? 'Animal'} sighting</Strong>
+                <Muted>{c.possibleDuplicateOf ? `Possible duplicate of ${c.possibleDuplicateOf.slice(0, 12)}` : 'Photo attached for staff review'}</Muted>
+                {c.visualMatchCount ? <Notice tone="warning">{c.visualMatchCount} possible visual match{c.visualMatchCount === 1 ? '' : 'es'} · verify with a person</Notice> : null}
+              </View>
+            </View>
+            <Button label="Open case" compact onPress={() => router.push(`/cases/${c.id}`)} />
+          </Card>)}
+        </> : null}
         <SectionTitle>Needs attention</SectionTitle>
         {!unresolved.length ? <Empty title="All cases are closed" /> : null}
         {[...unresolved].sort((a, b) =>
@@ -98,6 +119,7 @@ export default function Command() {
           <Muted>{c.shelterId ? `Assigned to shelter · ${c.status}` : 'No shelter assigned'} · updated {timeAgo(c.updatedAt)}</Muted>
           {noRecentUpdate.includes(c) ? <Notice tone="danger">No case update for at least 15 minutes</Notice> : null}
           {c.possibleDuplicateOf ? <Notice tone="warning">Possible duplicate sighting of case {c.possibleDuplicateOf.slice(0, 12)}</Notice> : null}
+          {c.visualMatchCount ? <Notice tone="warning">{c.visualMatchCount} possible visual match{c.visualMatchCount === 1 ? '' : 'es'} · human review required</Notice> : null}
           {c.plan ? <Muted>Plan {c.plan.status}: {c.plan.reason}</Muted> : <Muted>Response plan pending</Muted>}
           <Button label="Open case" compact onPress={() => router.push(`/cases/${c.id}`)} />
         </Card>)}

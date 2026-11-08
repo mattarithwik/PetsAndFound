@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { Children, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -244,12 +244,16 @@ export function SourceTag({ kind }: { kind: keyof typeof sourceTags }) {
 
 export function Notice({ tone = 'info', title, children, icon }: { tone?: Tone; title?: string; children?: ReactNode; icon?: IconName }) {
   const c = toneColors[tone];
+  const content = Children.toArray(children);
+  const textOnly = content.every((part) => typeof part === 'string' || typeof part === 'number');
   return (
     <View style={[styles.notice, { backgroundColor: c.bg }]}>
       <Ionicons name={icon ?? (tone === 'danger' || tone === 'warning' ? 'alert-circle' : 'information-circle')} size={20} color={c.fg} />
       <View style={styles.flex}>
         {title ? <Text style={[styles.strong, { color: c.fg }]}>{title}</Text> : null}
-        {typeof children === 'string' ? <Text style={[styles.body, { color: colors.text }]}>{children}</Text> : children}
+        {textOnly ? <Text style={[styles.body, { color: colors.text }]}>{content.join('')}</Text> :
+          content.map((part, index) => typeof part === 'string' || typeof part === 'number'
+            ? <Text key={index} style={[styles.body, { color: colors.text }]}>{part}</Text> : part)}
       </View>
     </View>
   );

@@ -37,7 +37,7 @@ export default function OwnerOnboarding() {
   if (profile && !busy) return <Redirect href="/" />;
   return (
     <Screen edges={['top']}>
-      <Hero title="Your owner profile" subtitle="Start with your name. You can add your home area and contacts now or later." />
+      <Hero title="Your profile" />
       <Field label="Your name" value={name} onChangeText={setName} placeholder="Jordan Lee" autoComplete="name" maxLength={120} />
       <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} placeholder="jordan" maxLength={32} hint="At least 3 letters or numbers; dots, dashes and underscores are okay." />
       <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" maxLength={128} />

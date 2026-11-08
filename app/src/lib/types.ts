@@ -152,7 +152,7 @@ export type RescueCase = {
   outcome: string;
 };
 export type Incident = { id: string; title: string; hazard: string; latitude: number; longitude: number; radiusKm: number; status: 'active' | 'closed'; createdAt: string };
-export type CommandCase = { id: string; reportId: string; shelterId: string; priority: Priority; status: CaseStatus; updatedAt: string; createdAt: string; firstReviewedAt: string; possibleDuplicateOf: string; summary: ReportSummary | null; plan: { status: string; suggestedShelterId: string; reason: string } | null };
+export type CommandCase = { id: string; reportId: string; shelterId: string; priority: Priority; status: CaseStatus; updatedAt: string; createdAt: string; firstReviewedAt: string; possibleDuplicateOf: string; photoId: string; visualMatchCount: number; summary: ReportSummary | null; plan: { status: string; suggestedShelterId: string; reason: string } | null };
 export type IncidentBoard = { incident: Incident; cases: CommandCase[] };
 export type ResponsePlan = { caseId: string; status: string; suggestedShelterId: string; reason: string; steps: string[]; evidence: { trace: string[]; agentToolCalls?: string[]; matches: { id: string; score: number }[]; candidates: { id: string; name: string; distanceKm: number; spaces: number }[]; weather: { event: string }[] }; generatedAt: string };
 export type OperationRecommendation = {

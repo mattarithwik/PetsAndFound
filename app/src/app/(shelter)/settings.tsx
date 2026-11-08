@@ -21,7 +21,7 @@ export default function Settings() {
   const shelter = ops.data?.shelter ?? active?.shelter ?? null;
 
   return (
-    <Screen edges={['top']} onRefresh={() => Promise.all([refresh(), ops.refresh()])}>
+    <Screen edges={['top']} bottomInset={120} onRefresh={() => Promise.all([refresh(), ops.refresh()])}>
       <Hero title="Settings" subtitle={shelter?.name ?? profile?.name} />
       {memberships.length > 1 ? (
         <Chips label="Organization" value={active?.shelterId} onChange={setActiveShelter} options={memberships.map((m) => ({ value: m.shelterId, label: m.shelter?.name ?? m.shelterId }))} />
@@ -56,7 +56,7 @@ export default function Settings() {
       <SectionTitle>Account</SectionTitle>
       <Card>
         <ListRow icon="notifications-outline" title="Notifications" detail="Case assignments, capacity changes and alerts" right={unread ? <Badge label={`${unread} new`} tone="danger" /> : undefined} onPress={() => router.push('/notifications')} />
-        <ListRow icon="person-outline" title="Profile and account key" detail="Your staff ID, name and sign-in key" onPress={() => router.push('/account')} />
+        <ListRow icon="person-outline" title="Profile and sign-in" detail="Your details and staff ID" onPress={() => router.push('/account')} />
         <ListRow
           icon="paw-outline"
           title="Switch to pet owner view"
@@ -69,7 +69,7 @@ export default function Settings() {
         <ListRow
           icon="log-out-outline"
           title="Sign out"
-          detail="Save your account key first if you want to sign in again"
+          detail="You can sign back in with your account details"
           onPress={async () => {
             await signOut();
             router.replace('/welcome');

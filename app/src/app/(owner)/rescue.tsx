@@ -137,9 +137,8 @@ export default function Rescue() {
         <View style={local.headline}>
           <Text style={local.greeting}>{profile ? `Hello, ${profile.name.split(' ')[0]}` : 'Welcome'}</Text>
           <Text accessibilityRole="header" style={local.title}>
-            Rescue center
+            Rescue
           </Text>
-          <Text style={local.heroDetail}>Report a lost or found pet and follow their search.</Text>
         </View>
         <Image source={require('@/assets/logo.png')} contentFit="contain" style={local.heroArt} />
         <View style={local.bell}>
@@ -319,8 +318,8 @@ export default function Rescue() {
           {shelters.data && !shelters.data.items.length ? (
             <Empty
               icon="business-outline"
-              title="No shelters found within 30 km"
-              body="This means none were found in the connected directories, not that none exist."
+              title="No nearby shelters found"
+              body="Try another area or check with local animal services."
             />
           ) : null}
           {shelters.data?.items.map((s) => (
@@ -368,7 +367,6 @@ const local = StyleSheet.create({
     fontSize: 38,
     lineHeight: 44,
   },
-  heroDetail: { color: '#E8F5FF', fontSize: 14, maxWidth: 330, lineHeight: 20 },
   heroArt: { width: '27%', maxWidth: 150, height: 112, marginTop: 24, marginLeft: 7 },
   bell: { position: 'absolute', top: 8, right: 8 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

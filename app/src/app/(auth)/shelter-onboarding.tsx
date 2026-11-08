@@ -40,7 +40,7 @@ export default function ShelterOnboarding() {
   if (!token || !profile)
     return (
       <Screen edges={['top']}>
-        <Hero title="ShelterDash" subtitle="Coordinate care and help animals get home safely. Start with your staff profile." />
+        <Hero title="Your staff profile" />
         <Field label="Your name" value={name} onChangeText={setName} placeholder="Alex Rivera" autoComplete="name" />
         <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} placeholder="alex" maxLength={32} />
         <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" maxLength={128} />
@@ -111,7 +111,7 @@ export default function ShelterOnboarding() {
 
   return (
     <Screen edges={['top']}>
-      <Hero title="Your organization" subtitle="Directory listings are public, but only verified operators can accept cases or report capacity." />
+      <Hero title="Your organization" />
       <Chips
         value={path}
         onChange={setPath}

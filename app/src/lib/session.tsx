@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
-import { account, db } from './api';
+import { account, ApiError, db } from './api';
 import { startRealtime } from './realtime';
 import { storage } from './storage';
 import { unregisterOnSignOut } from './device-alerts';
@@ -220,8 +220,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await account.setPassword(token, username.trim(), password, role ?? 'owner');
       },
       async restore(nextRole, value) {
-        const trimmed = value.trim();
-        const restored = await snapshot(trimmed);
+        let trimmed = value.trim().replace(/^Bearer\s+/i, '');
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+            (trimmed.startsWith("'") && trimmed.endsWith("'"))) trimmed = trimmed.slice(1, -1);
+        let restored;
+        try { restored = await snapshot(trimmed); }
+        catch (error) {
+          if (error instanceof ApiError && (error.status === 401 || error.status === 403 || /invalid.*signature|invalid token/i.test(error.message)))
+            throw new Error('This account key is not valid for this PawSafe server. Check the app URL and copy only the key value.');
+          throw error;
+        }
         if (!restored.profile) throw new Error('No PawSafe profile is linked to that account key.');
         await remember(trimmed, nextRole);
         setProfile(restored.profile);

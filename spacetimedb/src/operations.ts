@@ -1,4 +1,4 @@
-import { replanForShelter } from "./operation-agent";
+import { enqueueOperation, replanForShelter } from "./operation-agent";
 import {
   action,
   canReadReport,
@@ -264,6 +264,10 @@ export const assign_rescue_case = action((ctx, p) => {
   )
     fail("Shelter assignment unavailable");
   if (c.status === "assigned" && c.assigneeId === assigneeId) return;
+  const shelter = ctx.db.shelters.id.find(shelterId)!;
+  if (shelter.acceptingAnimals === false ||
+    (typeof shelter.totalCapacity === "number" && typeof shelter.currentOccupancy === "number" &&
+      shelter.currentOccupancy >= shelter.totalCapacity)) fail("Shelter has no reported intake space");
   if (!["open", "under_review"].includes(c.status)) fail("Case already assigned");
   if (assigneeId !== sender(ctx) && ctx.db.staff.id.find(shelterId + ":" + sender(ctx))?.role !== "manager")
     fail("Manager required to assign a colleague");
@@ -284,6 +288,14 @@ export const transfer_rescue_case = action((ctx, p) => {
   notify(ctx, "transfer:" + c.id + ":" + now(ctx), c.creatorId, "SHELTER_CASE_ASSIGNED", {
     caseId: c.id,
     shelterId,
+  });
+});
+export const release_rescue_case = action((ctx, p) => {
+  const c = staffCase(ctx, p);
+  ctx.db.cases.id.update({ ...c, shelterId: "", assigneeId: "", status: "open", updatedAt: now(ctx) });
+  enqueueOperation(ctx, c.id, "case_released");
+  notify(ctx, "released:" + c.id + ":" + now(ctx), c.creatorId, "REPORT_STATUS_CHANGED", {
+    caseId: c.id, status: "open",
   });
 });
 export const resolve_rescue_case = action((ctx, p) => {

@@ -44,14 +44,14 @@ export function CameraAssist({ condition, onPhoto, onAssessment }: { condition: 
     return () => clearInterval(timer);
   }, [analyze, scanning]);
   if (!permission) return <Muted>Checking camera access…</Muted>;
-  if (!permission.granted) return <Button label="Allow camera for scene assist" variant="outline" onPress={() => { void requestPermission(); }} />;
+  if (!permission.granted) return <Button label="Allow camera access" variant="outline" onPress={() => { void requestPermission(); }} />;
   return <View style={{ gap: 10 }}>
-    <SectionTitle>PawTricia scene assist</SectionTitle>
-    <Muted>Scan the current camera view for visible hazards. You decide the animal’s condition; the scan cannot diagnose injuries.</Muted>
+    <SectionTitle>Check the surroundings</SectionTitle>
+    <Muted>Check for visible hazards. Confirm the animal’s condition yourself.</Muted>
     <CameraView ref={camera} facing="back" onCameraReady={() => setReady(true)} style={{ width: '100%', height: 260, borderRadius: 16, overflow: 'hidden' }} />
     <Button label={scanning ? 'Stop live scans' : 'Start live scans'} variant="outline" onPress={() => setScanning(!scanning)} />
-    <Button label="Analyze current frame" disabled={!ready} onPress={() => { void analyze(); }} />
-    {lastFrame ? <Button label="Use last frame as report photo" variant="ghost" onPress={() => { onPhoto({ uri: lastFrame, mimeType: 'image/jpeg' }); feedback('success'); }} /> : null}
+    <Button label="Check this view" disabled={!ready} onPress={() => { void analyze(); }} />
+    {lastFrame ? <Button label="Use this photo in report" variant="ghost" onPress={() => { onPhoto({ uri: lastFrame, mimeType: 'image/jpeg' }); feedback('success'); }} /> : null}
     <ErrorNote error={error} />
     {assessment ? <Card tone="info">
       <Body>{assessment.environment}</Body>

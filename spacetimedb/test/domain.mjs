@@ -91,6 +91,8 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   assert.ok(initialBoardCase);
   assert.equal(initialBoardCase.firstReviewedAt, "");
   assert.ok(Date.parse(initialBoardCase.createdAt));
+  assert.equal(initialBoardCase.photoId, "intake-photo");
+  assert.equal((await ownerDb.read("photo", "intake-photo")).id, "intake-photo");
   assert.ok((await service.read("service_plan_candidates")).includes(intake.id));
   await ownerDb.write("update_shelter_resources", { shelterId, species: "dog, cat", supplies: "bandages", foodUnits: 10, crates: 4, medicalKits: 2 });
   assert.equal((await ownerDb.read("shelter_resources", shelterId)).medicalKits, 2);
@@ -105,9 +107,16 @@ export async function verifyDomain({ admin, service, ownerDb, finderDb, ownerId,
   assert.equal(await finderDb.read("alert_location"), null);
   await assert.rejects(() => finderDb.write("assign_rescue_case", { shelterId, caseId: intake.id }));
   assert.ok((await ownerDb.read("case_queue")).some((c) => c.id === intake.id));
+  await ownerDb.write("update_shelter_capacity", { ...capacity, currentOccupancy: 20 });
+  await assert.rejects(() => ownerDb.write("assign_rescue_case", { shelterId, caseId: intake.id }));
+  await ownerDb.write("update_shelter_capacity", capacity);
   await ownerDb.write("assign_rescue_case", { shelterId, caseId: intake.id });
   const reviewedBoardCase = (await ownerDb.read("incident_board", "domain-incident")).cases.find((c) => c.id === intake.id);
   assert.ok(Date.parse(reviewedBoardCase.firstReviewedAt) >= Date.parse(reviewedBoardCase.createdAt));
+  await ownerDb.write("release_rescue_case", { caseId: intake.id });
+  assert.equal((await ownerDb.read("case", intake.id)).shelterId, "");
+  assert.equal((await ownerDb.read("incident_board", "domain-incident")).cases.find((c) => c.id === intake.id).firstReviewedAt, reviewedBoardCase.firstReviewedAt);
+  await ownerDb.write("assign_rescue_case", { shelterId, caseId: intake.id });
   assert.equal((await ownerDb.read("case", intake.id)).assessment.environment, "Wet road nearby");
   await finderDb.write("register_push_device", { deviceId: "domain-device", token: "ExpoPushToken[example123]" });
   const pendingPush = (await service.read("service_pending_push")).find((p) => p.deviceId === "domain-device");

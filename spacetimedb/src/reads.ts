@@ -22,6 +22,11 @@ function verifiedMember(ctx: ReadCtx) {
   return [...ctx.db.staff.userId.filter(sender(ctx))].some((r) => isStaff(ctx, r.shelterId));
 }
 
+function incidentMember(ctx: ReadCtx, caseId: string) {
+  const link = ctx.db.incidentCases.caseId.find(caseId);
+  return !!link && ctx.db.incidents.id.find(link.incidentId)?.status === "active" && verifiedMember(ctx);
+}
+
 export const my_profile = db.view(
   { name: "my_profile", public: true },
   t.option(users.rowType),
@@ -151,6 +156,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
       if ("reportId" in r) {
         const report = ctx.db.reports.id.find(r.reportId);
         if (report && canReadReport(ctx, report)) return r;
+        if (report && incidentMember(ctx, r.reportId)) return r;
       }
       for (const m of relevantMatches(ctx))
         if (m.status !== "rejected") {
@@ -231,14 +237,15 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         !c.shelterId &&
         c.status === "open" &&
         [...ctx.db.staff.userId.filter(actor)].some((r) => isStaff(ctx, r.shelterId));
-      if (!queued && !relevantCases(ctx).some((r) => r.id === c.id)) return null;
+      const incidentAccess = incidentMember(ctx, c.id);
+      if (!queued && !incidentAccess && !relevantCases(ctx).some((r) => r.id === c.id)) return null;
       const r = ctx.db.reports.id.find(c.reportId);
       const readable = !!r && canReadReport(ctx, r);
       return {
         ...c,
         summary: ctx.db.reportSummaries.id.find(c.reportId) ?? null,
         report: readable ? r : null,
-        photos: readable ? Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId)) : [],
+        photos: readable || incidentAccess ? Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId)) : [],
         assessment: readable && ctx.db.sceneAssessments.reportId.find(c.reportId)
           ? { ...ctx.db.sceneAssessments.reportId.find(c.reportId)!, visibleConcerns: JSON.parse(ctx.db.sceneAssessments.reportId.find(c.reportId)!.visibleConcerns) }
           : null,
@@ -263,9 +270,13 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         if (!c) return [];
         const plan = ctx.db.responsePlans.caseId.find(c.id);
         const report = ctx.db.reports.id.find(c.reportId);
+        const firstPhoto = Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId))[0];
+        const visualMatchCount = Array.from(ctx.db.matches.candidateId.filter(c.reportId))
+          .filter((m) => m.candidateType === "report" && m.status !== "rejected").length;
         return [{ id: c.id, reportId: c.reportId, shelterId: c.shelterId, priority: c.priority,
           status: c.status, updatedAt: c.updatedAt, createdAt: report?.createdAt ?? c.updatedAt,
           firstReviewedAt: ctx.db.caseFirstReviews.caseId.find(c.id)?.reviewedAt ?? "",
+          photoId: firstPhoto?.id ?? "", visualMatchCount,
           duplicateKey: report ? `${report.species}:${Math.round(report.latitude * 10000)}:${Math.round(report.longitude * 10000)}:${Math.floor(Date.parse(report.observedAt) / 900000)}` : "",
           summary: ctx.db.reportSummaries.id.find(c.reportId) ?? null,
           plan: plan ? { status: plan.status, suggestedShelterId: plan.suggestedShelterId, reason: plan.reason } : null }];
@@ -281,7 +292,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
     case "case_operations": {
       const c = ctx.db.cases.id.find(key);
       if (!c || (c.creatorId !== actor && !isStaff(ctx, c.shelterId) &&
-        !(!c.shelterId && c.status === "open" && verifiedMember(ctx)))) return null;
+        !(!c.shelterId && c.status === "open" && verifiedMember(ctx)) && !incidentMember(ctx, c.id))) return null;
       const job = ctx.db.operationJobs.caseId.find(key);
       const fullEvidence = c.creatorId === actor || isStaff(ctx, c.shelterId);
       const runs = Array.from(ctx.db.operationRuns.caseId.filter(key))

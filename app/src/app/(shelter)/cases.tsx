@@ -19,7 +19,7 @@ export default function Cases() {
 
   if (!verified)
     return (
-      <Screen edges={['top']}>
+      <Screen edges={['top']} bottomInset={120}>
         <Hero title="Cases" subtitle={active?.shelter?.name} />
         <Notice tone="warning" title="Verification required">
           Only verified shelter staff can review, accept and transfer rescue cases. Check your verification status in Settings.
@@ -37,7 +37,7 @@ export default function Cases() {
   const rows = lists[view];
 
   return (
-    <Screen edges={['top']} onRefresh={ops.refresh}>
+    <Screen edges={['top']} bottomInset={120} onRefresh={ops.refresh}>
       <Hero title="Cases" subtitle={active?.shelter?.name} />
       <Chips
         value={view}

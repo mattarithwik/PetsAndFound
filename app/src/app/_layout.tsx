@@ -25,7 +25,7 @@ export default function RootLayout() {
 }
 
 function Navigator() {
-  const { ready, profile, token, role } = useSession();
+  const { ready, profile, token } = useSession();
   if (!ready)
     return (
       <View style={{ flex: 1, backgroundColor: colors.baby, alignItems: 'center', justifyContent: 'center' }}>
@@ -47,7 +47,7 @@ function Navigator() {
           headerStyle: { backgroundColor: colors.white },
           contentStyle: { backgroundColor: colors.bg },
           headerBackButtonDisplayMode: 'minimal',
-          headerRight: profile && role === 'owner' ? () => <ChatFab header /> : undefined,
+          headerRight: profile ? () => <ChatFab header /> : undefined,
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

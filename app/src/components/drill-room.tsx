@@ -44,7 +44,6 @@ function Banner({ title, caption, animal = 'dog' }: { title: string; caption: st
   return (
     <View style={s.banner}>
       <View style={s.bannerWords}>
-        <Text style={s.kicker}>PRACTICE ARCADE</Text>
         <Text accessibilityRole="header" style={s.bannerTitle}>
           {title}
         </Text>
@@ -202,7 +201,7 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
         <>
           <Banner
             title="Rescue drills"
-            caption="Choose a fictional situation and practice getting a pet to safety."
+            caption="Fictional scenarios for practice."
           />
           <SectionTitle>Choose a situation</SectionTitle>
           <View style={s.grid}>
@@ -262,7 +261,7 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
             style={s.back}
           />
           <Banner title={scene!.title} caption="Choose the pet you’ll guide through this drill." />
-          <SectionTitle>Choose your companion</SectionTitle>
+          <SectionTitle>Choose a pet</SectionTitle>
           <View style={s.grid}>
             {animals.map((a) => (
               <MotionPressable
@@ -379,12 +378,12 @@ export function DrillRoom({ deviceOnly = false }: { deviceOnly?: boolean }) {
               {!localRun &&
                 (explanation ? (
                   <Card tone="sim">
-                    <Strong>Pawtricia’s AI debrief</Strong>
+                    <Strong>Pawtricia’s feedback</Strong>
                     <Body>{explanation}</Body>
                   </Card>
                 ) : (
                   <Button
-                    label="Get Pawtricia’s debrief"
+                    label="Ask Pawtricia for feedback"
                     icon="sparkles-outline"
                     variant="outline"
                     onPress={explain}

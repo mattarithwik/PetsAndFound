@@ -29,11 +29,11 @@ export default function Profile() {
       <Card>
         <ListRow icon="person-outline" title={profile?.name || 'Account settings'} detail="Edit your home area and emergency contacts" onPress={() => router.push('/account')} />
         <ListRow icon="notifications-outline" title="Notifications" detail="Matches, case updates and official warnings" right={unread ? <Badge label={`${unread} new`} /> : undefined} onPress={() => router.push('/notifications')} />
-        <ListRow icon="business-outline" title="Switch to ShelterDash" detail="For shelter staff and responders" onPress={async () => {
+        <ListRow icon="business-outline" title="Switch to shelter view" detail="For shelter staff and responders" onPress={async () => {
           await setRole('shelter');
           router.replace('/dashboard');
         }} />
-        <ListRow icon="log-out-outline" title="Sign out" detail="Save your account key first if you want to sign in again" onPress={async () => {
+        <ListRow icon="log-out-outline" title="Sign out" detail="You can sign back in with your account details" onPress={async () => {
           await signOut();
           router.replace('/welcome');
         }} />

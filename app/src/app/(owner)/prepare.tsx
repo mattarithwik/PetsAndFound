@@ -29,7 +29,7 @@ const kitItems = [
   'A backup caregiver who can help evacuate your pets',
 ];
 const sections = [
-  { value: 'warnings', label: 'Warnings' }, { value: 'guide', label: 'Field guide' }, { value: 'kit', label: 'Emergency kit' },
+  { value: 'warnings', label: 'Warnings' }, { value: 'guide', label: 'Safety guide' }, { value: 'kit', label: 'Emergency kit' },
 ] as const;
 type Section = (typeof sections)[number]['value'];
 const kitKey = 'pawsafe.checklist';
@@ -110,9 +110,8 @@ export default function Prepare() {
     <Screen edges={['top']} bottomInset={128}>
       <View style={local.hero}>
         <View style={local.heroCopy}>
-          <Text style={local.eyebrow}>PET PREPAREDNESS</Text>
-          <Text accessibilityRole="header" style={local.heroTitle}>Your emergency plan</Text>
-          <Text style={local.sub}>{place?.city || place?.state ? [place.city, place.state].filter(Boolean).join(', ') : 'Local warnings, safety guidance and supplies for your pets.'}</Text>
+          <Text accessibilityRole="header" style={local.heroTitle}>Prepare</Text>
+          {place?.city || place?.state ? <Text style={local.sub}>{[place.city, place.state].filter(Boolean).join(', ')}</Text> : null}
         </View>
         <Image source={require('../../../assets/daisy.png')} contentFit="cover" style={local.heroPhoto} />
       </View>
@@ -144,7 +143,7 @@ export default function Prepare() {
         <SourceLink url="https://www.weather.gov/" label="Visit the National Weather Service" />
       </> : null}
       {section === 'guide' ? <>
-        <SectionTitle action={<SourceTag kind="curated" />}>Hazard field guide</SectionTitle>
+        <SectionTitle action={<SourceTag kind="curated" />}>Safety guide</SectionTitle>
         {pets.data && pets.data.length > 1 ? <Chips label="Guidance for" options={pets.data.map((p) => ({ value: p.id, label: p.name }))} value={pet?.id} onChange={setPetId} /> : null}
         <Chips label="Choose a hazard" options={hazards} value={hazard} onChange={setHazard} />
         {guidance.loading && !guidance.data ? <Loading label="Loading safety guidance…" /> : null}
@@ -176,7 +175,6 @@ const local = StyleSheet.create({
   hero: { flexDirection: 'row', backgroundColor: '#D8EBFB', borderRadius: 22, overflow: 'hidden', minHeight: 166 },
   heroCopy: { flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 22 },
   heroPhoto: { width: '31%', maxWidth: 190, height: '100%', position: 'relative' },
-  eyebrow: { color: '#205B8B', fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
   heroTitle: { fontSize: 34, lineHeight: 37, fontFamily: Platform.select({ ios: 'Georgia', web: 'Georgia', default: 'serif' }), fontWeight: 'bold', color: '#112F46', letterSpacing: -0.7 },
   sub: { color: '#34516A', fontSize: 14, lineHeight: 20 },
   location: { flexDirection: 'row', alignItems: 'center', gap: 8 },

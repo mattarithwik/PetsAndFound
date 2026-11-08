@@ -28,8 +28,8 @@ export default function Dashboard() {
 
   if (!memberships.length)
     return (
-      <Screen edges={['top']}>
-        <Hero title="ShelterDash" subtitle={profile?.name} right={<NotificationBell />} />
+      <Screen edges={['top']} bottomInset={120}>
+        <Hero title="Dashboard" subtitle={profile?.name} right={<NotificationBell />} />
         <Empty icon="business-outline" title="Connect your organization" body="Register your shelter or rescue, claim an existing directory listing, or join a team with your staff ID." />
         <Button label="Set up organization" icon="add-circle-outline" onPress={() => router.push('/shelter-onboarding')} />
         <Button label="Switch to pet owner view" variant="ghost" onPress={() => setRole('owner').then(() => router.replace('/rescue'))} />
@@ -48,8 +48,8 @@ export default function Dashboard() {
     .map((c) => ({ id: c.id, latitude: c.report!.latitude, longitude: c.report!.longitude, title: `${c.priority} · ${c.report!.species}`, tone: c.priority === 'normal' ? ('case' as const) : ('urgent' as const) }));
 
   return (
-    <Screen edges={['top']} onRefresh={() => Promise.all([ops.refresh(), alerts.refresh()])}>
-      <Hero title={shelter?.name ?? 'ShelterDash'} subtitle={active ? verificationLabel[active.verification] : undefined} right={<NotificationBell />} />
+    <Screen edges={['top']} bottomInset={120} onRefresh={() => Promise.all([ops.refresh(), alerts.refresh()])}>
+      <Hero title={shelter?.name ?? 'Dashboard'} subtitle={active ? verificationLabel[active.verification] : undefined} right={<NotificationBell />} />
       {!online ? <Notice tone="warning" title="Offline">Showing the last data we loaded.</Notice> : null}
       {memberships.length > 1 ? (
         <Chips label="Organization" value={active?.shelterId} onChange={setActiveShelter} options={memberships.map((m) => ({ value: m.shelterId, label: m.shelter?.name ?? m.shelterId }))} />
@@ -82,7 +82,7 @@ export default function Dashboard() {
         </>
       ) : (
         <Card>
-          <Muted>Capacity not published. Owners and Pawtricia will tell people to call before bringing an animal.</Muted>
+          <Muted>Publish your capacity so people know whether you have space.</Muted>
         </Card>
       )}
       {verified ? <Button label="Update capacity" icon="create-outline" variant="outline" compact onPress={() => router.push('/settings')} /> : null}
@@ -116,7 +116,7 @@ export default function Dashboard() {
 
       {shelter ? (
         <>
-          <SectionTitle action={<SourceTag kind="official" />}>Weather alerts at your location</SectionTitle>
+          <SectionTitle action={<SourceTag kind="official" />}>Local weather alerts</SectionTitle>
           <ErrorNote error={alerts.error} onRetry={alerts.refresh} />
           {alerts.loading ? <Loading label="Checking NWS alerts…" /> : null}
           {unavailableWeather ? <Notice tone="warning">NWS alerts are unavailable for this location. Check weather.gov for current conditions.</Notice> : null}

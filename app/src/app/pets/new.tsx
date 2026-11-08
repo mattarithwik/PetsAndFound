@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { PetFields, petForm, petPayload, photoAngles } from '@/components/pet-fields';
 import { PhotoSlot } from '@/components/photos';
-import { Button, Card, ErrorNote, Muted, Screen, SectionTitle, Title, Toggle } from '@/components/ui';
+import { Button, Card, ErrorNote, Muted, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { db } from '@/lib/api';
 import { useAction } from '@/lib/hooks';
 import { uuid } from '@/lib/ids';
@@ -48,13 +48,11 @@ export default function NewPet() {
   return (
     <Screen bottomInset={64}>
       <Stack.Screen options={{ title: 'Register a pet' }} />
-      <Title>Meet your pet</Title>
-      <Muted>A clear portrait and a few details help identify your pet if you become separated.</Muted>
       <View pointerEvents={busy ? 'none' : 'auto'} style={local.form}>
         <Card>
           <PetFields form={form} onChange={setForm} />
         </Card>
-        <SectionTitle>Reference photos</SectionTitle>
+        <SectionTitle>Pet photos</SectionTitle>
         <Muted>Start with a front view. Add each side and a close-up of any distinctive markings. You can add photos later from the profile.</Muted>
         <View style={local.grid}>
           {photoAngles.map(({ angle, label }) => (

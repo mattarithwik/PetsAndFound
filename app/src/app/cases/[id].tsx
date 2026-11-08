@@ -70,8 +70,11 @@ export default function CaseScreen() {
   const ours = !!shelterId && c.shelterId === shelterId;
   const queued = !c.shelterId && c.status === 'open';
   const closed = c.status === 'resolved' || c.status === 'cancelled';
+  const intakeFull = active?.shelter?.acceptingAnimals === false ||
+    (typeof active?.shelter?.totalCapacity === 'number' && typeof active.shelter.currentOccupancy === 'number' &&
+      active.shelter.currentOccupancy >= active.shelter.totalCapacity);
   const canManage = verified && ours && !closed && (c.assigneeId === profile?.id || manager);
-  const canAccept = verified && (queued || (ours && (c.status === 'open' || c.status === 'under_review')));
+  const canAccept = verified && !intakeFull && (queued || (ours && (c.status === 'open' || c.status === 'under_review')));
   const assigneeName = c.assigneeId ? (c.assigneeId === profile?.id ? 'You' : data.data?.staff.find((s) => s.userId === c.assigneeId)?.name || 'A teammate') : 'Unassigned';
   const colleagues = (data.data?.staff ?? []).filter((s) => s.userId !== profile?.id);
 
@@ -107,8 +110,8 @@ export default function CaseScreen() {
       </Row>
       <Title>{where ? `${speciesLabel(where.species)} ${where.type === 'lost' ? 'reported lost' : 'found'}` : 'Rescue case'}</Title>
       {c.priority !== 'normal' ? (
-        <Notice tone={c.priority === 'critical' ? 'danger' : 'warning'} title="Why this is prioritized">
-          {`The reporter described the animal as "${conditions.find((x) => x.value === c.reason)?.label ?? c.reason}". Priority is set by rule from the reported condition; verify on site before acting.`}
+        <Notice tone={c.priority === 'critical' ? 'danger' : 'warning'} title="Reported condition">
+          {`The reporter described the animal as "${conditions.find((x) => x.value === c.reason)?.label ?? c.reason}". Check the animal’s condition on site before acting.`}
         </Notice>
       ) : null}
 
@@ -147,8 +150,8 @@ export default function CaseScreen() {
           <Body>{plan.data.reason}</Body>
           {plan.data.suggestedShelterId ? <KeyValue label="Suggested shelter" value={plan.data.evidence.candidates.find((s) => s.id === plan.data?.suggestedShelterId)?.name ?? plan.data.suggestedShelterId} /> : null}
           {plan.data.steps.map((step, index) => <Muted key={index}>{index + 1}. {step}</Muted>)}
-          <Muted>Generated {timeAgo(plan.data.generatedAt)}. Review the recorded tool results above.</Muted>
-          {plan.data.status === 'proposed' ? <View style={{ gap: 8 }}>
+          <Muted>Generated {timeAgo(plan.data.generatedAt)}. Review the checks above.</Muted>
+          {plan.data.status === 'proposed' && (ours || queued) ? <View style={{ gap: 8 }}>
             <Button label="Mark plan reviewed" variant="outline" onPress={() => run('review-plan', async () => { await db.call(token!, 'review_response_plan', { caseId: c.id, status: 'accepted' }); await plan.refresh(); })} loading={busy === 'review-plan'} />
             <Button label="Decline plan" variant="ghost" onPress={() => run('decline-plan', async () => { await db.call(token!, 'review_response_plan', { caseId: c.id, status: 'declined' }); await plan.refresh(); })} loading={busy === 'decline-plan'} />
           </View> : null}
@@ -183,6 +186,7 @@ export default function CaseScreen() {
 
       {!verified ? <Notice tone="warning">Only verified shelter staff can act on cases.</Notice> : null}
 
+      {queued && verified && intakeFull ? <Notice tone="warning">Your shelter reports no intake space. Switch to a shelter with space before accepting this case.</Notice> : null}
       {canAccept ? (
         <>
           <SectionTitle>Accept responsibility</SectionTitle>
@@ -254,11 +258,11 @@ export default function CaseScreen() {
       <ErrorNote error={error} />
 
       <SectionTitle>Possible matches</SectionTitle>
-      {!data.data?.matches.length ? <Muted>No lost-pet matches for this animal yet.</Muted> : null}
+      {!data.data?.matches.length ? <Muted>{!ours && plan.data?.evidence.matches.length ? 'A possible match was flagged. The handling shelter can review its details.' : 'No lost-pet matches for this animal yet.'}</Muted> : null}
       {data.data?.matches.map((m) => (
         <MatchCard key={m.id} match={m} />
       ))}
-      {c.shelterId ? <CaseConversation caseId={c.id} /> : null}
+      {ours && c.shelterId ? <CaseConversation caseId={c.id} /> : null}
     </Screen>
   );
 }

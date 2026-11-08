@@ -12,3 +12,6 @@ __pycache__/
 *.sqlite*
 *.log
 .demo-incident.json
+.demo-images/
+.demo-spacetime/
+.demo-run.env

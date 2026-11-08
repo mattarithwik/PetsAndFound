@@ -89,7 +89,7 @@ export default function ReportDetail() {
     search.run('search', async () => {
       const result = await agent.post<{ items: Match[]; coverage: 'partial' | 'complete' }>(token!, '/v1/matching/search', { reportId: report.id });
       await data.refresh();
-      if (result.coverage === 'partial') throw new Error('Some photos or sources could not be compared right now. Results may be incomplete; the worker will retry.');
+      if (result.coverage === 'partial') throw new Error('Some photos or sources could not be checked. We’ll try again automatically.');
     });
 
   return (
@@ -117,7 +117,7 @@ export default function ReportDetail() {
         </View>
       ) : null}
       {rescue?.assessment ? <Card tone="info">
-        <Muted>PawTricia camera observations</Muted>
+        <Muted>Camera observations</Muted>
         <Body>{rescue.assessment.environment}</Body>
         {rescue.assessment.visibleConcerns.map((item, index) => <Muted key={index}>• {item}</Muted>)}
         <Muted>{rescue.assessment.uncertainty}</Muted>
@@ -145,9 +145,9 @@ export default function ReportDetail() {
 
       <SectionTitle>Possible matches</SectionTitle>
       <Muted>
-        Ranked by visual similarity (DINOv2), distance, timing and description. A score is not proof of identity — always confirm in person or by microchip.
+        Check identifying details in person or by microchip before confirming a match.
       </Muted>
-      {!matches.length ? <Empty icon="images-outline" title="No candidates yet" body="The matching worker checks new found reports, shelter listings and permitted public posts automatically." /> : null}
+      {!matches.length ? <Empty icon="images-outline" title="No matches yet" body="We’ll keep checking new reports and shelter listings." /> : null}
       {matches.map((m) => (
         <MatchCard key={m.id} match={m} />
       ))}

@@ -11,12 +11,12 @@ import {
   TextInput,
   View,
   type ScrollViewInstance,
-  type TextInputInstance,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 
 import { choosePhotoSource } from '@/components/photos';
+import { LocationPicker } from '@/components/location-picker';
 import {
   Badge,
   Button,
@@ -37,9 +37,11 @@ import { useChat, type ChatMessage, type ChatRequest } from '@/lib/chat';
 import { conditions, dateTime, speciesLabel } from '@/lib/format';
 import { uuid } from '@/lib/ids';
 import { useLive } from '@/lib/hooks';
+import type { Place } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { feedback, MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
+import { useShelter } from '@/lib/shelter';
 import { uploadPhoto, type PickedImage } from '@/lib/uploads';
 import type { AgentAction, AgentResult, PendingAction, Pet } from '@/lib/types';
 
@@ -69,12 +71,22 @@ const starters: { label: string; prompt: string; icon: IconName }[] = [
   { label: 'Check local alerts', prompt: 'Are there weather alerts near me?', icon: 'cloud-outline' },
   { label: 'Find nearby shelters', prompt: 'Which shelters near me are accepting animals?', icon: 'business-outline' },
 ];
+const shelterStarters: typeof starters = [
+  { label: 'Help a found animal', prompt: 'Help me report a found animal for our shelter.', icon: 'paw-outline' },
+  { label: 'Check local alerts', prompt: 'Are there weather alerts near our shelter?', icon: 'cloud-outline' },
+  { label: 'Find nearby shelters', prompt: 'Find nearby shelters and their contact details.', icon: 'business-outline' },
+  { label: 'Prepare for an emergency', prompt: 'Help our shelter prepare to keep animals safe during an emergency.', icon: 'shield-checkmark-outline' },
+];
 const enterMessage = FadeInUp.duration(180).reduceMotion(ReduceMotion.System);
 
 export default function Chat() {
   const params = useLocalSearchParams<{ prompt?: string; reportId?: string }>();
-  const { token } = useSession();
-  const { place } = usePlace();
+  const { token, role } = useSession();
+  const { place, setPlace } = usePlace();
+  const { active } = useShelter();
+  const chatPlace: Place | undefined = role === 'shelter' && active?.shelter
+    ? { ...active.shelter, label: active.shelter.address || active.shelter.name }
+    : place;
   const {
     messages,
     setMessages,
@@ -92,7 +104,7 @@ export default function Chat() {
   const [text, setText] = useState(params.prompt ?? '');
   const [notice, setNotice] = useState<string>();
   const scroll = useRef<ScrollViewInstance>(null);
-  const composerInput = useRef<TextInputInstance>(null);
+  const delivering = useRef(false);
 
   useEffect(() => {
     if (params.prompt) setText(params.prompt);
@@ -111,8 +123,8 @@ export default function Chat() {
   }, [messages.length, sending]);
 
   const context = (attachedPhotos = photos) => ({
-    ...(place ? { location: { latitude: place.latitude, longitude: place.longitude } } : {}),
-    ...(place?.city ? { city: place.city } : {}),
+    ...(chatPlace ? { location: { latitude: chatPlace.latitude, longitude: chatPlace.longitude } } : {}),
+    ...(chatPlace?.city ? { city: chatPlace.city } : {}),
     ...(reportId ? { reportId } : {}),
     ...(attachedPhotos.length
       ? {
@@ -126,6 +138,8 @@ export default function Chat() {
   });
 
   const deliver = async (request: ChatRequest) => {
+    if (delivering.current) return;
+    delivering.current = true;
     update({ sending: true });
     try {
       const result = await agent.post<AgentResult>(token!, '/v1/agent/message', {
@@ -139,7 +153,7 @@ export default function Chat() {
       if (!failed) update({ previousRunId: result.runId });
       const summary =
         failed && /NVIDIA_(MODEL|API_KEY) is not configured/.test(result.summary)
-          ? 'Pawtricia is unavailable because the AI service hasn’t been connected. You can still file a report from the Rescue tab.'
+          ? 'Pawtricia is unavailable right now. Please try again shortly.'
           : result.summary;
       setMessages((list) => [
         ...list.filter((m) => !(m.from === 'agent' && m.retry?.requestId === request.requestId)),
@@ -159,13 +173,14 @@ export default function Chat() {
         { id: uuid(), from: 'agent', text: errorText(e), retry: request },
       ]);
     } finally {
+      delivering.current = false;
       update({ sending: false });
     }
   };
 
   const send = (value = text) => {
     const trimmed = value.trim();
-    if (!trimmed || sending || uploading || attachment) return;
+    if (!trimmed || sending || uploading || attachment || delivering.current) return;
     const request: ChatRequest = { requestId: uuid(), text: trimmed, context: context(), previousRunId };
     setMessages((list) => [...list, { id: request.requestId, from: 'user', text: trimmed }]);
     setText('');
@@ -280,24 +295,18 @@ export default function Chat() {
           {!messages.length ? (
             <View style={local.intro}>
               <Text accessibilityRole="header" style={local.hello}>How can I help?</Text>
-              <Muted style={{ textAlign: 'center', maxWidth: 410 }}>
-                Tell me about a missing pet, check nearby shelters, or ask about weather alerts in your area.
-              </Muted>
-              {!place && !reportId ? (
-                <Notice tone="warning">Set your location on the Rescue tab so I can search nearby.</Notice>
+              {!chatPlace && !reportId ? (
+                <LocationPicker label="Search near" value={place} onChange={setPlace} />
               ) : null}
               <View style={local.starters}>
-                {starters.map((s) => (
+                {(role === 'shelter' ? shelterStarters : starters).map((s) => (
                   <MotionPressable
                     key={s.label}
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: sending || uploading }}
-                    accessibilityHint="Adds a suggested message for you to edit and send"
-                    onPress={() => {
-                      setText(s.prompt);
-                      composerInput.current?.focus();
-                    }}
-                    disabled={sending || uploading}
+                    accessibilityState={{ disabled: sending || uploading || !!attachment }}
+                    accessibilityHint="Sends this message to Pawtricia"
+                    onPress={() => send(s.prompt)}
+                    disabled={sending || uploading || !!attachment}
                     style={local.starter}
                   >
                     <Ionicons name={s.icon} size={20} color={colors.navy} />
@@ -366,7 +375,6 @@ export default function Chat() {
             <Ionicons name={uploading ? 'hourglass-outline' : 'camera-outline'} size={24} color={colors.navy} />
           </MotionPressable>
           <TextInput
-            ref={composerInput}
             value={text}
             onChangeText={setText}
             placeholder="Message Pawtricia"
@@ -501,7 +509,7 @@ function Bubble({
                     color={a.status === 'success' ? colors.success : colors.warning}
                   />
                   <Text style={local.actionText}>
-                    {toolLabels[a.tool] ?? a.tool}
+                    {toolLabels[a.tool] ?? 'Checked a source'}
                     {a.status !== 'success' && a.status !== 'awaiting_confirmation' ? ' (unavailable)' : ''}
                   </Text>
                 </Row>
