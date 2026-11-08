@@ -1,3 +1,4 @@
+import { setTimeout, clearTimeout } from "node:timers";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ApiError, type Actor, type Report, type Store } from "./db.js";
@@ -112,11 +113,30 @@ export async function ownReport(actor: Actor, reportId: string) {
   if (!report) throw new ApiError(404, "Report not found");
   return report;
 }
-export async function searchMatches(actor: Actor, reportId: string) {
+// Keep long image processing off the HTTP response path and share repeat taps.
+const searches = new Map<string, Promise<{ failures: number }>>();
+export async function searchMatches(
+  actor: Actor,
+  reportId: string,
+  runMatching = matchReport,
+  waitMs = 3000,
+) {
   const report = await ownReport(actor, reportId);
   if (report.status !== "open") throw new ApiError(409, "Report is no longer open");
-  const coverage = { failures: 0 };
-  await matchReport(actor.system, reportId, coverage);
+  let work = searches.get(reportId);
+  if (!work) {
+    const coverage = { failures: 0 };
+    work = Promise.resolve().then(() => runMatching(actor.system, reportId, coverage))
+      .then(() => coverage)
+      .catch(() => ({ failures: Math.max(1, coverage.failures) }))
+      .finally(() => { searches.delete(reportId); });
+    searches.set(reportId, work);
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const coverage = await Promise.race([
+    work,
+    new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), waitMs); }),
+  ]).finally(() => { clearTimeout(timer); });
   const matches =
     await actor.db.read<
       { id: string; score: number; status: string; lostReportId: string; candidateId: string }[]
@@ -126,6 +146,7 @@ export async function searchMatches(actor: Actor, reportId: string) {
       .filter((m) => m.status !== "rejected" && (m.lostReportId === reportId || m.candidateId === reportId))
       .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
       .slice(0, 5),
-    coverage: coverage.failures ? "partial" : "complete",
+    status: coverage ? "completed" : "processing",
+    coverage: !coverage || coverage.failures ? "partial" : "complete",
   };
 }

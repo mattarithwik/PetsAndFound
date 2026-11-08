@@ -167,8 +167,9 @@ export function CaseCard({ item, onPress }: { item: RescueCase | QueuedCase; onP
   const summary = 'report' in item ? item.report : undefined;
   const full = 'status' in item ? item : undefined;
   return (
-    <Card onPress={onPress}>
+    <Card onPress={onPress} tone={item.potentialMatchCount ? 'warning' : undefined}>
       <Row>
+        {item.potentialMatchCount ? <Badge label={`${item.potentialMatchCount} possible match${item.potentialMatchCount === 1 ? '' : 'es'}`} tone="warning" /> : null}
         <Badge label={item.priority} tone={priorityTone[item.priority]} />
         {full ? <Badge label={caseStatusLabel[full.status]} tone="info" /> : <Badge label="Unassigned" tone="warning" />}
       </Row>

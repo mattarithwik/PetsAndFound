@@ -38,21 +38,21 @@ export function RemotePhoto({ photoId, style, fit = 'cover' }: { photoId?: strin
 }
 
 export function choosePhotoSource(onPick: (image: PickedImage) => void, onError: (message: string) => void) {
-  const pick = (source: 'camera' | 'library') =>
+  const pick = (source: 'camera' | 'library' | 'files') =>
     pickImage(source)
       .then((image) => { if (image) { onPick(image); feedback('success'); } })
       .catch((e) => { feedback('error'); onError(e instanceof Error ? e.message : 'Could not open photos.'); });
-  if (Platform.OS === 'web') return pick('library');
+  if (Platform.OS === 'web') return pick('files');
   if (Platform.OS === 'ios')
     return ActionSheetIOS.showActionSheetWithOptions(
-      { options: ['Cancel', 'Take photo', 'Choose from library'], cancelButtonIndex: 0 },
-      (index) => index && pick(index === 1 ? 'camera' : 'library'),
+      { options: ['Cancel', 'Take photo', 'Choose from library', 'Upload from files'], cancelButtonIndex: 0 },
+      (index) => index && pick(index === 1 ? 'camera' : index === 2 ? 'library' : 'files'),
     );
   Alert.alert('Add a photo', undefined, [
     { text: 'Take photo', onPress: () => pick('camera') },
     { text: 'Choose from library', onPress: () => pick('library') },
-    { text: 'Cancel', style: 'cancel' },
-  ]);
+    { text: 'Upload from files', onPress: () => pick('files') },
+  ], { cancelable: true });
 }
 
 export function PhotoSlot({ label, image, onPick, onError, style }: { label: string; image?: PickedImage; onPick: (image: PickedImage) => void; onError: (message: string) => void; style?: StyleProp<ViewStyle> }) {
@@ -66,7 +66,7 @@ export function PhotoSlot({ label, image, onPick, onError, style }: { label: str
         <Image source={{ uri: image.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
         <>
-          <Ionicons name="camera-outline" size={24} color={colors.sky} />
+          <Ionicons name="image-outline" size={24} color={colors.sky} />
           <Text style={local.slotLabel}>{label}</Text>
         </>
       )}

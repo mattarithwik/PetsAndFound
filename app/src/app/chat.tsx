@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -22,7 +21,6 @@ import {
   Button,
   Card,
   colors,
-  displayFont,
   type IconName,
   KeyValue,
   Muted,
@@ -43,6 +41,7 @@ import { feedback, MotionPressable } from '@/lib/motion';
 import { useSession } from '@/lib/session';
 import { useShelter } from '@/lib/shelter';
 import { uploadPhoto, type PickedImage } from '@/lib/uploads';
+import { useKeyboardInset } from '@/lib/use-keyboard-inset';
 import type { AgentAction, AgentResult, PendingAction, Pet } from '@/lib/types';
 
 const toolLabels: Record<string, string> = {
@@ -105,6 +104,7 @@ export default function Chat() {
   const [notice, setNotice] = useState<string>();
   const scroll = useRef<ScrollViewInstance>(null);
   const delivering = useRef(false);
+  const keyboard = useKeyboardInset();
 
   useEffect(() => {
     if (params.prompt) setText(params.prompt);
@@ -142,12 +142,19 @@ export default function Chat() {
     delivering.current = true;
     update({ sending: true });
     try {
-      const result = await agent.post<AgentResult>(token!, '/v1/agent/message', {
+      let result = await agent.post<AgentResult>(token!, '/v1/agent/message', {
         requestId: request.requestId,
         message: request.text,
         ...(request.previousRunId ? { previousRunId: request.previousRunId } : {}),
         context: request.context,
       });
+      // Poll short requests so slow tools and model turns can outlive the tunnel deadline.
+      const deadline = Date.now() + 5 * 60_000;
+      while (result.status === 'running') {
+        if (Date.now() >= deadline) throw new Error('Pawtricia is still working. Try again to reconnect to this request.');
+        await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+        result = await agent.get<AgentResult>(token!, `/v1/agent/runs/${encodeURIComponent(result.runId)}`);
+      }
       const failed = result.status === 'failed';
       if (failed) feedback('error');
       if (!failed) update({ previousRunId: result.runId });
@@ -240,57 +247,70 @@ export default function Chat() {
   };
 
   return (
-    <SafeAreaView style={local.screen} edges={['top', 'bottom']}>
+    <View
+      ref={keyboard.containerRef}
+      collapsable={false}
+      onLayout={keyboard.measure}
+      style={[local.screen, { paddingBottom: keyboard.bottomInset }]}
+    >
+      <SafeAreaView style={local.screen} edges={keyboard.bottomInset > 0 ? [] : ['bottom']}>
       <Stack.Screen
         options={{
           title: 'Pawtricia',
           presentation: 'modal',
-          headerShown: false,
+          headerShown: true,
+          headerTitleStyle: { fontSize: 17, fontWeight: '600', color: colors.text },
+          headerLeft: () => (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel="Close Pawtricia"
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              style={local.headerAction}
+            >
+              <Ionicons name="close" size={22} color={colors.text} />
+            </MotionPressable>
+          ),
+          headerRight: () => (
+            <MotionPressable
+              disabled={(!messages.length && !reportId) || sending || uploading}
+              onPress={() => {
+                reset();
+                setAttachment(undefined);
+                setText('');
+                setNotice(undefined);
+                router.setParams({ reportId: undefined, prompt: undefined });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Start a new conversation"
+              accessibilityState={{ disabled: (!messages.length && !reportId) || sending || uploading }}
+              style={[local.headerAction, !messages.length && !reportId && { opacity: 0.35 }]}
+            >
+              <Ionicons name="create-outline" size={21} color={colors.text} />
+            </MotionPressable>
+          ),
         }}
       />
-      <View style={local.bar}>
-        <MotionPressable
-          accessibilityRole="button"
-          accessibilityLabel="Close Pawtricia"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-          style={local.barIcon}
+      <View style={local.sheet}>
+        <ScrollView
+          ref={scroll}
+          style={local.flex}
+          contentContainerStyle={local.list}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          onLayout={() => scroll.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
-          <Ionicons name="close" size={24} color={colors.text} />
-        </MotionPressable>
-        <View style={local.nameplate}>
-          <Image source={require('@/assets/doghead.png')} style={local.avatar} contentFit="contain" />
-          <View>
-            <Text accessibilityRole="header" style={local.name}>Pawtricia</Text>
-            <Text style={local.subtitle}>Your PawSafe assistant</Text>
-          </View>
-        </View>
-        <MotionPressable
-          disabled={(!messages.length && !reportId) || sending || uploading}
-          onPress={() => {
-            reset();
-            setAttachment(undefined);
-            setText('');
-            setNotice(undefined);
-            router.setParams({ reportId: undefined, prompt: undefined });
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Start a new conversation"
-          accessibilityState={{ disabled: (!messages.length && !reportId) || sending || uploading }}
-          style={[local.barIcon, !messages.length && !reportId && { opacity: 0.35 }]}
-        >
-          <Ionicons name="create-outline" size={21} color={colors.text} />
-        </MotionPressable>
-      </View>
-      <KeyboardAvoidingView style={local.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView ref={scroll} contentContainerStyle={local.list} keyboardShouldPersistTaps="handled">
           {reportId ? (
-            <Button
-              compact
-              variant="ghost"
-              icon="document-text-outline"
-              label="View the report for this conversation"
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel="View the report for this conversation"
+              style={local.reportLink}
               onPress={() => router.push(`/reports/${encodeURIComponent(reportId)}`)}
-            />
+            >
+              <Ionicons name="document-text-outline" size={16} color={colors.navy} />
+              <Text style={local.reportLinkText}>View report</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+            </MotionPressable>
           ) : null}
           {!messages.length ? (
             <View style={local.intro}>
@@ -309,9 +329,8 @@ export default function Chat() {
                     disabled={sending || uploading || !!attachment}
                     style={local.starter}
                   >
-                    <Ionicons name={s.icon} size={20} color={colors.navy} />
+                    <Ionicons name={s.icon} size={18} color={colors.navy} />
                     <Text style={local.starterText}>{s.label}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.muted} />
                   </MotionPressable>
                 ))}
               </View>
@@ -377,6 +396,7 @@ export default function Chat() {
           <TextInput
             value={text}
             onChangeText={setText}
+            onFocus={keyboard.measure}
             placeholder="Message Pawtricia"
             accessibilityLabel="Message Pawtricia"
             placeholderTextColor={colors.muted}
@@ -398,8 +418,9 @@ export default function Chat() {
             <Ionicons name="arrow-up" size={20} color={colors.white} />
           </MotionPressable>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -663,36 +684,12 @@ function Preview({
 
 const local = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: 740,
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.white,
-  },
-  barIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.pale,
+  headerAction: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nameplate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    flex: 1,
-  },
-  name: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  subtitle: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   sheet: {
     flex: 1,
     alignSelf: 'center',
@@ -701,25 +698,29 @@ const local = StyleSheet.create({
     backgroundColor: colors.bg,
     overflow: 'hidden',
   },
-  hello: { fontFamily: displayFont, fontSize: 30, fontWeight: 'bold', letterSpacing: -1, color: colors.text },
+  hello: { fontSize: 20, fontWeight: '600', color: colors.text },
   flex: { flex: 1 },
   list: { padding: 16, gap: 10, paddingBottom: 24 },
-  intro: { alignItems: 'center', gap: 12, paddingVertical: 28 },
+  intro: { gap: 14, paddingTop: 12, paddingBottom: 8 },
+  reportLink: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, alignSelf: 'flex-start' },
+  reportLinkText: { fontSize: 14, color: colors.navy, fontWeight: '500' },
   avatar: { width: 28, height: 28, marginTop: 4 },
-  starters: { width: '100%', maxWidth: 440, gap: 10, marginTop: 12 },
+  starters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   starter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    minHeight: 52,
+    gap: 8,
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.white,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  starterText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '600' },
+  starterText: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '500' },
   bubble: { borderRadius: 18, padding: 12, maxWidth: '100%', gap: 8 },
   user: {
     alignSelf: 'flex-end',
@@ -749,6 +750,7 @@ const local = StyleSheet.create({
   sourceLabel: { flex: 1, color: colors.navy, fontSize: 13, fontWeight: '600' },
   noticeBar: { paddingHorizontal: 16 },
   composer: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,

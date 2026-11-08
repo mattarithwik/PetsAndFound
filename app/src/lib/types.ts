@@ -140,6 +140,7 @@ export type CaseStatus = 'open' | 'under_review' | 'assigned' | 'in_progress' | 
 export type Priority = 'critical' | 'urgent' | 'normal';
 
 export type RescueCase = {
+  potentialMatchCount?: number;
   id: string;
   reportId: string;
   creatorId: string;
@@ -184,7 +185,7 @@ export type CaseDetail = RescueCase & {
   assessment?: SceneAssessment | null;
 };
 
-export type QueuedCase = { id: string; priority: Priority; report: ReportSummary | null };
+export type QueuedCase = { potentialMatchCount?: number; id: string; priority: Priority; report: ReportSummary | null };
 
 export type MatchEvidence = {
   candidatePhotoId?: string;

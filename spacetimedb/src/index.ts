@@ -10,5 +10,6 @@ export {
 } from "./incident";
 export * from "./push";
 export * from "./alerts";
+export { import_migration_rows } from "./migration";
 
 export { queue_response_plan, ensure_operation_jobs, claim_operation_job, record_operation_step, renew_operation_lease, finish_operation_run } from "./operation-agent";

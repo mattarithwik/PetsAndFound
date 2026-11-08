@@ -15,3 +15,6 @@ __pycache__/
 .demo-images/
 .demo-spacetime/
 .demo-run.env
+.cloud-migration.json
+.migration-backups/
+.cloud-accounts.txt

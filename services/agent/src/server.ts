@@ -1,9 +1,10 @@
+import { requestChat, pendingChat } from "./chat-request.js";
 import { createServer, type IncomingMessage } from "node:http";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { ApiError, authenticate, type Actor } from "./db.js";
 import { registerCredentials, signInCredentials } from "./auth.js";
-import { message, confirm, messageInput } from "./orchestrator.js";
+import { confirm, messageInput } from "./orchestrator.js";
 import { upload, getPhotoUrl } from "./media.js";
 import {
   listScenarios,
@@ -116,7 +117,7 @@ export function makeServer(auth = authenticate) {
         const input = await json(req, path === "/v1/scene/assess" ? 2_100_000 : 32768);
         switch (path) {
           case "/v1/agent/message":
-            value = await message(actor, messageInput.parse(input));
+            value = await requestChat(actor, messageInput.parse(input));
             break;
           case "/v1/agent/confirm-action":
             value = await confirm(actor, confirmation.parse(input).runId);
@@ -190,6 +191,8 @@ export function makeServer(auth = authenticate) {
   });
 }
 async function getRun(actor: Actor, id: string) {
+  const pending = pendingChat(actor, id);
+  if (pending) return pending;
   const run = await actor.db.read<Record<string, unknown> | null>("agent_run", id);
   if (!run) throw new ApiError(404, "Run not found");
   return run.result || run;

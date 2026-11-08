@@ -17,6 +17,7 @@ export default function ReportDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { token, profile } = useSession();
   const { busy, error, run } = useAction();
+  const [searchMessage, setSearchMessage] = useState('');
   const [confirming, setConfirming] = useState<'closed' | 'reunited'>();
   const data = useLive(
     async () => {
@@ -87,8 +88,13 @@ export default function ReportDetail() {
 
   const runSearch = () =>
     search.run('search', async () => {
-      const result = await agent.post<{ items: Match[]; coverage: 'partial' | 'complete' }>(token!, '/v1/matching/search', { reportId: report.id });
+      setSearchMessage('');
+      const result = await agent.post<{ status?: 'processing' | 'completed'; items: Match[]; coverage: 'partial' | 'complete' }>(token!, '/v1/matching/search', { reportId: report.id });
       await data.refresh();
+      if (result.status === 'processing') {
+        setSearchMessage('Search is running. Possible matches will appear here as they are found.');
+        return;
+      }
       if (result.coverage === 'partial') throw new Error('Some photos or sources could not be checked. We’ll try again automatically.');
     });
 
@@ -152,6 +158,7 @@ export default function ReportDetail() {
         <MatchCard key={m.id} match={m} />
       ))}
       {isOpen && mine ? <Button label="Search for matches now" icon="search" variant="outline" onPress={runSearch} loading={search.busy === 'search'} /> : null}
+      {searchMessage ? <Notice>{searchMessage}</Notice> : null}
       {search.error ? <Notice tone="warning">{search.error}</Notice> : null}
 
       {isOpen && mine ? (

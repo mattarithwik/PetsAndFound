@@ -97,7 +97,7 @@ export default function Command() {
           <SectionTitle>Case photos</SectionTitle>
           <Muted>SIMULATED reports use Oxford-IIIT Pet dataset images under CC BY-SA 4.0. A photo does not establish an injury or identity.</Muted>
           <Button label="Dataset and image credit" variant="outline" compact onPress={() => void Linking.openURL('https://www.robots.ox.ac.uk/~vgg/data/pets/')} />
-          {photographed.slice(0, 8).map((c) => <Card key={`photo-${c.id}`}>
+          {photographed.slice(0, 8).map((c) => <Card key={`photo-${c.id}`} tone={c.visualMatchCount ? 'warning' : undefined}>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
               <RemotePhoto photoId={c.photoId} style={{ width: 88, height: 88 }} />
               <View style={{ flex: 1 }}>
@@ -114,7 +114,7 @@ export default function Command() {
         {[...unresolved].sort((a, b) =>
           Number(noRecentUpdate.includes(b)) - Number(noRecentUpdate.includes(a)) ||
           priorityRank[a.priority] - priorityRank[b.priority] || a.updatedAt.localeCompare(b.updatedAt),
-        ).slice(0, 50).map((c) => <Card key={c.id}>
+        ).slice(0, 50).map((c) => <Card key={c.id} tone={c.visualMatchCount ? 'warning' : undefined}>
           <Strong>{c.priority.toUpperCase()} · {c.summary?.species ?? 'Animal'} {c.summary?.type ?? 'case'}</Strong>
           <Muted>{c.shelterId ? `Assigned to shelter · ${c.status}` : 'No shelter assigned'} · updated {timeAgo(c.updatedAt)}</Muted>
           {noRecentUpdate.includes(c) ? <Notice tone="danger">No case update for at least 15 minutes</Notice> : null}

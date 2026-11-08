@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Platform } from 'react-native';
 
 import { agent, ApiError } from './api';
@@ -31,7 +32,17 @@ async function jpegForUpload(image: PickedImage): Promise<Blob> {
   throw new ApiError(413, 'Photo is too large. Choose a smaller image (under 10 MB).');
 }
 
-export async function pickImage(source: 'camera' | 'library'): Promise<PickedImage | undefined> {
+export async function pickImage(source: 'camera' | 'library' | 'files'): Promise<PickedImage | undefined> {
+  if (source === 'files') {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'image/*', multiple: false, copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets[0]) return undefined;
+    const asset = result.assets[0];
+    if (asset.mimeType && !asset.mimeType.startsWith('image/'))
+      throw new Error('Choose an image file for your pet photo.');
+    return { uri: asset.uri, mimeType: asset.mimeType };
+  }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6 };
   if (source === 'camera' && Platform.OS !== 'web') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();

@@ -1,8 +1,9 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { LocationPicker } from '@/components/location-picker';
-import { Button, Card, Chips, Empty, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Screen, SectionTitle } from '@/components/ui';
+import { RemotePhoto } from '@/components/photos';
+import { Button, Card, Chips, Empty, ErrorNote, Field, KeyValue, Loading, Muted, Notice, Screen, SectionTitle, Toggle } from '@/components/ui';
 import { agent, db } from '@/lib/api';
 import { useDraft } from '@/lib/drafts';
 import { dateTime, hoursAgo, publicArea, sinceOptions } from '@/lib/format';
@@ -13,6 +14,35 @@ import type { Place } from '@/lib/location';
 import { usePlace } from '@/lib/place';
 import { useSession } from '@/lib/session';
 import type { Pet } from '@/lib/types';
+import { pickImage, uploadPhoto } from '@/lib/uploads';
+
+function LostPetPhoto({ petId, name }: { petId: string; name: string }) {
+  const { token } = useSession();
+  const { busy, error, run } = useAction();
+  const [photoId, setPhotoId] = useState<string>();
+  const [singleAnimal, setSingleAnimal] = useState(true);
+  const upload = () => run('photo', async () => {
+    const image = await pickImage('files');
+    if (!image) return;
+    const photo = await uploadPhoto(token!, image);
+    await db.call(token!, 'attach_pet_photo', {
+      ...photo, petId, angle: 'other', ...(singleAnimal ? { animalCount: 1 } : {}),
+    });
+    setPhotoId(photo.id);
+    feedback('success');
+  });
+  return (
+    <Card>
+      <SectionTitle>Photo of {name}</SectionTitle>
+      <Muted>Upload a clear photo from your files. It will be saved to your pet's reference photos for matching.</Muted>
+      {photoId ? <RemotePhoto photoId={photoId} style={{ width: 160, height: 160 }} fit="contain" /> : null}
+      <Toggle label="Only this pet is in the photo" value={singleAnimal} onChange={setSingleAnimal} />
+      <Button label="Upload from files" icon="document-attach-outline" variant="outline" onPress={upload} loading={!!busy} />
+      {photoId ? <Muted>Photo saved to {name}'s profile.</Muted> : null}
+      <ErrorNote error={error} />
+    </Card>
+  );
+}
 
 type Draft = {
   reportId: string;
@@ -114,6 +144,7 @@ export default function LostReport() {
     <Screen key="form">
       <Stack.Screen options={{ title: 'Report a lost pet' }} />
       <Chips label="Which pet is missing?" value={draft.petId} onChange={(petId) => update({ petId })} options={(pets.data ?? []).map((p) => ({ value: p.id, label: p.name }))} />
+      {pet ? <LostPetPhoto key={pet.id} petId={pet.id} name={pet.name} /> : null}
       <Chips label="When were they last seen?" value={draft.since} onChange={(since) => update({ since })} options={sinceOptions} />
       <LocationPicker label="Where were they last seen?" value={draft.place} onChange={(p) => update({ place: p })} />
       <Field

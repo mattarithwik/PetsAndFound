@@ -105,8 +105,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setRoleState(savedRole === 'shelter' ? 'shelter' : 'owner');
         try {
           await load(savedToken);
-        } catch {
-          setOnline(false);
+        } catch (error) {
+          if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+            // A key from the old server cannot be retried against the cloud server.
+            // Return to sign-in instead of trapping the user on the offline screen.
+            await Promise.all([storage.remove(TOKEN_KEY), storage.remove(ROLE_KEY)]);
+            if (active) {
+              currentToken.current = undefined;
+              setToken(undefined);
+              setRoleState(undefined);
+              setOnline(true);
+            }
+          } else setOnline(false);
         }
       }
     })()

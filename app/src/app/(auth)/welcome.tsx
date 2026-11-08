@@ -34,6 +34,12 @@ const roles: { value: Role; name: string; detail: string; icon: IconName }[] = [
   },
 ];
 
+// Local demo sessions are configured in the ignored .env.local file.
+const bypassAccounts = __DEV__ ? [
+  { name: 'Rithwik', role: 'owner' as const, token: process.env.EXPO_PUBLIC_BYPASS_RITHWIK_TOKEN },
+  { name: 'Shelter Central', role: 'shelter' as const, token: process.env.EXPO_PUBLIC_BYPASS_CENTRAL_TOKEN },
+].filter((account) => !!account.token) : [];
+
 export default function Welcome() {
   const { width } = useWindowDimensions();
   const wide = width >= 840;
@@ -151,6 +157,24 @@ export default function Welcome() {
                 disabled={mode === 'key' ? !key.trim() : mode === 'signin' ? !username.trim() || !password : false}
                 style={s.continue}
               />
+              {mode !== 'create' && bypassAccounts.length > 0 ? (
+                <View style={s.roleList}>
+                  {bypassAccounts.map((account) => (
+                    <Button
+                      key={account.role}
+                      label={`Bypass as ${account.name}`}
+                      variant="outline"
+                      icon={account.role === 'owner' ? 'person-outline' : 'home-outline'}
+                      loading={busy === `bypass-${account.role}`}
+                      disabled={!!busy}
+                      onPress={() => { void run(`bypass-${account.role}`, async () => {
+                        await restore(account.role, account.token!);
+                        router.replace('/');
+                      }); }}
+                    />
+                  ))}
+                </View>
+              ) : null}
               {mode === 'signin' || mode === 'key' ? (
                 <MotionPressable accessibilityRole="button" feedback="selection" onPress={() => { setMode(mode === 'key' ? 'signin' : 'key'); setError(undefined); }} style={s.practice}>
                   <Text style={s.practiceText}>{mode === 'key' ? 'Use username and password' : 'Use an existing account key'}</Text>

@@ -71,9 +71,11 @@ npm ci --prefix app
 npm run app:web
 ```
 
-Expo prints the local web URL (normally `http://localhost:8081`). For a device or simulator, use `npm run app` instead. The client defaults to the `petlovers-mlcfo` database on SpacetimeDB Cloud and the agent API at port 8080 on the development host; `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
+Expo prints the local web URL (normally `http://localhost:8081`). For Expo Go, run `npm run app -- --tunnel` and open the printed Expo Go link. The client defaults to the `petlovers-mlcfo` database on SpacetimeDB Cloud. During development, API requests use `/pawsafe-api` on the same Expo host, which Metro forwards to the cloud-configured API running locally on port 8080. This works through the Expo tunnel without phone access to a laptop loopback address. `EXPO_PUBLIC_SPACETIME_URI`, `EXPO_PUBLIC_SPACETIME_DATABASE`, and `EXPO_PUBLIC_AGENT_URL` can override those defaults.
 
 The published cloud module is at `https://spacetimedb.com/@mattarithwik/petlovers-mlcfo`. The root `.env` selects `https://maincloud.spacetimedb.com` and `petlovers-mlcfo` for the locally run API and worker. Keep `SPACETIME_SERVICE_TOKEN` in that ignored file; it must belong to an identity granted the `service` role in this database. Run the API and worker with `node --env-file=.env` as shown below. The Expo client connects directly to cloud, while the agent API and vision service still need their own running endpoints.
+
+`node --env-file=.env scripts/migrate-local-to-cloud.mjs` merges the local incident into this cloud database using the publisher login. It creates private backups in `.migration-backups/`, maps local account identities to cloud identities, preserves existing cloud records and image assets, and saves cloud shelter sign-in details in ignored `.cloud-accounts.txt`. Local account keys cannot authenticate to Maincloud; use the migrated username and password. The private `.cloud-migration.json` records progress so an interrupted import can resume. The `import_migration_rows` reducer is publisher-only and refuses to overwrite conflicting records.
 
 Select **Try a practice drill** on the welcome screen or open `/practice` to play without signing in. The device keeps the six most recent local drills. The owner's Simulation tab saves connected runs to the account and offers a Nemotron debrief on completion.
 

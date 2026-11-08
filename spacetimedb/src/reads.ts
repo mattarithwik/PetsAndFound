@@ -18,6 +18,14 @@ import db, {
 } from "./tables";
 import { canReadReport, fail, isStaff, sender, service } from "./common";
 
+function potentialMatchCount(ctx: ReadCtx, reportId: string) {
+  const found = Array.from(ctx.db.matches.candidateId.filter(reportId))
+    .filter((m) => m.candidateType === "report" && m.status === "pending");
+  const lost = Array.from(ctx.db.matches.lostReportId.filter(reportId))
+    .filter((m) => m.status === "pending");
+  return new Set([...found, ...lost].map((m) => m.id)).size;
+}
+
 function verifiedMember(ctx: ReadCtx) {
   return [...ctx.db.staff.userId.filter(sender(ctx))].some((r) => isStaff(ctx, r.shelterId));
 }
@@ -229,7 +237,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         name: ctx.db.users.id.find(r.userId)?.name ?? "",
       }));
     case "cases":
-      return relevantCases(ctx);
+      return relevantCases(ctx).map((c) => ({ ...c, potentialMatchCount: potentialMatchCount(ctx, c.reportId) }));
     case "case": {
       const c = ctx.db.cases.id.find(key);
       if (!c) return null;
@@ -256,7 +264,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         fail("Verified shelter staff required");
       return Array.from(ctx.db.cases.shelterId.filter(""))
         .filter((c) => c.status === "open")
-        .map((c) => ({ id: c.id, priority: c.priority, report: ctx.db.reportSummaries.id.find(c.reportId) }));
+        .map((c) => ({ id: c.id, priority: c.priority, potentialMatchCount: potentialMatchCount(ctx, c.reportId), report: ctx.db.reportSummaries.id.find(c.reportId) }));
     }
     case "incidents":
       if (!verifiedMember(ctx)) fail("Verified shelter staff required");
@@ -271,8 +279,7 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
         const plan = ctx.db.responsePlans.caseId.find(c.id);
         const report = ctx.db.reports.id.find(c.reportId);
         const firstPhoto = Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId))[0];
-        const visualMatchCount = Array.from(ctx.db.matches.candidateId.filter(c.reportId))
-          .filter((m) => m.candidateType === "report" && m.status !== "rejected").length;
+        const visualMatchCount = potentialMatchCount(ctx, c.reportId);
         return [{ id: c.id, reportId: c.reportId, shelterId: c.shelterId, priority: c.priority,
           status: c.status, updatedAt: c.updatedAt, createdAt: report?.createdAt ?? c.updatedAt,
           firstReviewedAt: ctx.db.caseFirstReviews.caseId.find(c.id)?.reviewedAt ?? "",

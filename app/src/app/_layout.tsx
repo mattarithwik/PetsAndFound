@@ -56,7 +56,7 @@ function Navigator() {
         <Stack.Protected guard={!!token && !!profile}>
           <Stack.Screen name="(owner)" options={{ headerShown: false, title: 'PawSafe' }} />
           <Stack.Screen name="(shelter)" options={{ headerShown: false, title: 'ShelterDash' }} />
-          <Stack.Screen name="chat" options={{ title: 'Pawtricia', presentation: 'modal' }} />
+          <Stack.Screen name="chat" options={{ title: 'Pawtricia', presentation: 'modal', headerShown: true, headerRight: () => null }} />
           <Stack.Screen name="account" options={{ title: 'Account' }} />
           <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
           <Stack.Screen name="pets/new" options={{ title: 'Register a pet' }} />

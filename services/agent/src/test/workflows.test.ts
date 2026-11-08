@@ -366,3 +366,48 @@ test("private image upload signs an owner-scoped key and short-lived download", 
     readImage("http://127.0.0.1/image", new Set(["res.cloudinary.com"])),
   );
 });
+
+test("match search returns while processing and shares duplicate searches", async () => {
+  const { searchMatches } = await import("../workflows.js");
+  let finish!: () => void;
+  const blocked = new Promise<void>((resolve) => { finish = resolve; });
+  let calls = 0;
+  const store: Store = {
+    async read<T>(resource: string) {
+      return (resource === "report" ? { id: "slow-report", status: "open" } : [
+        { id: "unrelated", lostReportId: "other", candidateId: "elsewhere", score: 1 },
+        { id: "possible", lostReportId: "slow-report", candidateId: "found", score: 0.8 },
+      ]) as T;
+    },
+    async write() { throw new Error("Unexpected write"); },
+  };
+  const actor: Actor = { id: "owner", db: store, system: store };
+  const run = async () => { calls++; await blocked; return []; };
+  try {
+    const first = await searchMatches(actor, "slow-report", run, 1);
+    assert.equal(first.status, "processing");
+    assert.equal(first.coverage, "partial");
+    assert.deepEqual(first.items.map((m) => m.id), ["possible"]);
+    const duplicate = searchMatches(actor, "slow-report", run, 1000);
+    finish();
+    assert.equal((await duplicate).status, "completed");
+    assert.equal(calls, 1);
+  } finally { finish(); }
+});
+
+test("failed match search reports partial coverage instead of an unhandled background failure", async () => {
+  const { searchMatches } = await import("../workflows.js");
+  const store: Store = {
+    async read<T>(resource: string) {
+      return (resource === "report" ? { status: "open" } : []) as T;
+    },
+    async write() {},
+  };
+  const actor: Actor = { id: "owner", db: store, system: store };
+  const result = await searchMatches(actor, "failed-report", async () => { throw new Error("offline"); });
+  assert.equal(result.status, "completed");
+  assert.equal(result.coverage, "partial");
+  await assert.rejects(() => searchMatches({ ...actor, db: {
+    ...store, async read<T>() { return null as T; },
+  } }, "private-report"), /Report not found/);
+});
