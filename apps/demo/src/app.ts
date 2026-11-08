@@ -32,6 +32,10 @@
   const appPhoneFrame = element<HTMLDivElement>("app-phone-frame");
   const shelterLoginForm = element<HTMLFormElement>("shelter-login-form");
   const shelterLoginError = element<HTMLParagraphElement>("shelter-login-error");
+  const petPhotoButton = element<HTMLButtonElement>("pet-photo-button");
+  const petPhotoInput = element<HTMLInputElement>("pet-photo-input");
+  const petAvatarPreview = element<HTMLDivElement>("pet-avatar-preview");
+  const petDetailsForm = element<HTMLFormElement>("pet-details-form");
   const token = () => input("token").value.trim();
   input("token").value = sessionStorage.getItem("pawsafe-demo-token") || "";
   let database = "pawsafe";
@@ -75,6 +79,39 @@
       view.hidden = view.dataset.view !== "shelter-dashboard";
     });
     document.title = "PawSafe · ShelterDash";
+  });
+
+  petPhotoButton.addEventListener("click", () => petPhotoInput.click());
+  petPhotoInput.addEventListener("change", () => {
+    const file = petPhotoInput.files?.[0];
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    petAvatarPreview.style.backgroundImage = `url("${previewUrl}")`;
+    petAvatarPreview.textContent = "";
+    petAvatarPreview.classList.add("has-photo");
+  });
+  document.querySelectorAll<HTMLButtonElement>(".photo-upload-slot").forEach((slot) => {
+    const index = slot.dataset.photoSlot;
+    const photoInput = document.querySelector<HTMLInputElement>(`[data-photo-input="${index}"]`);
+    if (!photoInput) return;
+    slot.addEventListener("click", () => photoInput.click());
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files?.[0];
+      if (!file) return;
+      slot.style.backgroundImage = `url("${URL.createObjectURL(file)}")`;
+      slot.textContent = "";
+      slot.classList.add("has-photo");
+    });
+  });
+  petDetailsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = input("pet-name").value.trim();
+    input("pet-name").setCustomValidity(name ? "" : "Enter your pet's name.");
+    if (!petDetailsForm.checkValidity()) {
+      input("pet-name").reportValidity();
+      return;
+    }
+    petDetailsForm.querySelector(".save-pet-button")?.replaceChildren(document.createTextNode("Saved"));
   });
 
   document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) => {

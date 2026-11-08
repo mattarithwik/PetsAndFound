@@ -87,20 +87,34 @@
           </nav>
         </section>
         <section class="mobile-view profile-view" data-view="profile">
-      <div class="profile-hero">
-        <p class="profile-kicker">Diff Animal!</p>
-        <img class="pet-avatar" src="/daisy-source.png" alt="Daisy the dog">
-        <button class="camera-button" type="button" aria-label="Change pet photo">●</button>
-        <h1>Daisy</h1>
-        <p class="profile-intro">Tell us about your pet so we can help keep them safe and locate them during emergencies</p>
-      </div>
-      <div class="profile-details">
-        <p>more photos:</p>
-        <div class="photo-strip"><span></span><span></span><span></span></div>
-        <button type="button">age</button>
-        <button type="button">identification features</button>
-        <button type="button">any health conditions</button>
-      </div>
+         <div class="profile-hero">
+           <p class="profile-kicker">Tell us about your pet</p>
+           <div class="pet-avatar-placeholder" id="pet-avatar-preview">Add photo</div>
+           <input id="pet-photo-input" type="file" accept="image/*" hidden>
+           <button class="camera-button" id="pet-photo-button" type="button" aria-label="Upload pet photo">+</button>
+           <label class="pet-name-label" for="pet-name">Pet name</label>
+           <input class="pet-name-input" id="pet-name" type="text" placeholder="e.g. Daisy">
+         </div>
+         <form class="profile-details" id="pet-details-form">
+           <fieldset class="more-photos">
+             <legend>More pet photos</legend>
+             <div class="photo-upload-grid">
+               <button class="photo-upload-slot" type="button" data-photo-slot="1" aria-label="Add another pet photo">+</button>
+               <button class="photo-upload-slot" type="button" data-photo-slot="2" aria-label="Add another pet photo">+</button>
+               <button class="photo-upload-slot" type="button" data-photo-slot="3" aria-label="Add another pet photo">+</button>
+             </div>
+             <input class="additional-photo-input" data-photo-input="1" type="file" accept="image/*" hidden>
+             <input class="additional-photo-input" data-photo-input="2" type="file" accept="image/*" hidden>
+             <input class="additional-photo-input" data-photo-input="3" type="file" accept="image/*" hidden>
+           </fieldset>
+           <label for="pet-age">Age</label>
+           <input id="pet-age" type="number" min="0" max="50" placeholder="Enter age">
+           <label for="pet-features">Identification features</label>
+           <textarea id="pet-features" rows="2" placeholder="Color, markings, collar, or other details"></textarea>
+           <label for="pet-health">Any health conditions</label>
+           <textarea id="pet-health" rows="2" placeholder="Medications, allergies, or care needs"></textarea>
+           <button class="save-pet-button" type="submit">Save pet profile</button>
+         </form>
         </section>
         <section class="mobile-view ai-view" data-view="ai" hidden>
       <div class="ai-heading">
