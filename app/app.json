@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "PawSafe",
+    "slug": "pawsafe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "scheme": "pawsafe",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PawSafe uses your location to find nearby lost pets, shelters and official weather alerts.",
+        "NSCameraUsageDescription": "PawSafe uses the camera to photograph pets for registration and lost or found reports.",
+        "NSPhotoLibraryUsageDescription": "PawSafe needs pet photos so it can recognize them if they are lost."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#AED9FF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PawSafe uses your location to find nearby lost pets, shelters and official weather alerts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PawSafe needs pet photos so it can recognize them if they are lost.",
+          "cameraPermission": "PawSafe uses the camera to photograph pets for registration and lost or found reports."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "PawSafe uses the camera to photograph pets for registration and lost or found reports."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#4099E6",
+          "image": "./assets/logo.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

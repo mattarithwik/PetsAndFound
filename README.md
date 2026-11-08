@@ -54,7 +54,7 @@ The API defaults to port 8080. Both services expose `GET /health` for liveness. 
 
 If Bluesky requires an authenticated search, set `BSKY_PDS_URL` and a server-side `BSKY_ACCESS_JWT` issued for that PDS. Review externally licensed photos with `review_external_photos` before using them for automatic comparisons.
 
-For a small local test UI, run `npm run demo` and open `http://127.0.0.1:4173`. Create an identity, save a profile, and use the chat to see the agent's tool results and report confirmations. The API explorer can call the agent, SpacetimeDB, and vision endpoints. It uses `SPACETIME_URI`, `SPACETIME_DATABASE`, `AGENT_SERVICE_URL`, and `VISION_SERVICE_URL` from your environment or `.env`. The vision explorer requires the internal service secret. The user token stays in tab-scoped session storage.
+The Expo app lives in `app/`. From the repository root, run `npm run app` (or `npm run app:web`) after `npm install` inside `app/`.
 
 ## Client integration
 

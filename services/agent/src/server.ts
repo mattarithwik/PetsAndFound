@@ -12,6 +12,7 @@ import {
   step,
   stepInput,
   feedback,
+  hazards,
 } from "./simulation.js";
 import { reportQuery } from "./matching.js";
 import {
@@ -26,7 +27,7 @@ import {
   socialInput,
   species,
 } from "./workflows.js";
-import { getDisasterHistory } from "./providers/index.js";
+import { getDisasterHistory, getPreparednessGuidance } from "./providers/index.js";
 
 async function json(req: IncomingMessage) {
   if (req.headers["content-type"]?.split(";")[0].trim() !== "application/json")
@@ -59,11 +60,23 @@ const fema = z
   })
   .strict();
 
+const guidanceQuery = z
+  .object({ hazard: z.enum(hazards), species: species.optional() })
+  .strict();
+// Bearer tokens travel in a header, never cookies, so cross-origin browser clients (Expo web) are safe to allow.
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "600",
+};
+
 export function makeServer(auth = authenticate) {
   const busy = new Map<string, number>();
   return createServer(async (req, res) => {
     const reply = (status: number, body: unknown) => {
       res.writeHead(status, {
+        ...cors,
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
@@ -74,6 +87,11 @@ export function makeServer(auth = authenticate) {
     try {
       const url = new URL(req.url || "/", "http://localhost");
       const path = url.pathname;
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, cors);
+        res.end();
+        return;
+      }
       if (req.method === "GET" && path === "/health") {
         reply(200, { service: "pawsafe-agent", status: "ok" });
         return;
@@ -130,6 +148,8 @@ export function makeServer(auth = authenticate) {
         else if (path === "/v1/disasters/history")
           value = await getDisasterHistory(fema.parse(Object.fromEntries(url.searchParams)));
         else if (path === "/v1/scenarios") value = listScenarios();
+        else if (path === "/v1/preparedness")
+          value = getPreparednessGuidance(guidanceQuery.parse(Object.fromEntries(url.searchParams)));
         else if (path.startsWith("/v1/simulations/"))
           value = await simulation(actor, z.string().uuid().parse(path.slice(16)));
         else if (/^\/v1\/photos\/[^/]+\/url$/.test(path))

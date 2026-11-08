@@ -199,21 +199,25 @@ test("directory corroborates independent sources, keeps co-located organizations
   env(t, "RESCUEGROUPS_API_KEY", "example-key");
   let outage = false;
   intercept(t, (url) => {
-    if (url.hostname === "overpass-api.de")
+    if (url.hostname === "photon.komoot.io")
       return {
-        elements: [
+        features: [
           {
-            type: "node",
-            id: 1,
-            lat: 32.78,
-            lon: -96.8,
-            tags: { name: "Shelter One", phone: "(214) 555-1234" },
+            geometry: { type: "Point", coordinates: [-96.8, 32.78] },
+            properties: {
+              osm_type: "N",
+              osm_id: 1,
+              name: "Shelter One",
+              housenumber: "1",
+              street: "Main St",
+              city: "Dallas",
+              state: "TX",
+              postcode: "75201",
+            },
           },
           {
-            type: "way",
-            id: 2,
-            center: { lat: 32.78, lon: -96.8 },
-            tags: { name: "Another Rescue" },
+            geometry: { type: "Point", coordinates: [-96.8, 32.78] },
+            properties: { osm_type: "W", osm_id: 2, name: "Another Rescue" },
           },
         ],
       };
@@ -226,7 +230,10 @@ test("directory corroborates independent sources, keeps co-located organizations
             name: "Shelter One",
             lat: "32.78",
             lon: "-96.8",
-            phone: "+1-214-555-1234",
+            street: "1 Main St",
+            city: "Dallas",
+            state: "TX",
+            postalcode: "75201",
           },
         },
       ],

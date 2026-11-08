@@ -1,15 +1,12 @@
 {
-  "name": "pawsafe-backend",
+  "name": "pawsafe",
   "private": true,
   "scripts": {
     "build": "npm --prefix services/agent run build && npm --prefix spacetimedb run build",
     "test": "npm --prefix services/agent test",
     "start": "npm --prefix services/agent start",
     "worker": "npm --prefix services/agent run worker",
-    "demo": "node services/agent/node_modules/typescript/bin/tsc -p apps/demo && node apps/demo/dist/server.js",
-    "mobile": "npm --prefix apps/mobile start"
-  },
-  "dependencies": {
-    "react-native-vector-icons": "^10.3.0"
+    "app": "npm --prefix app start",
+    "app:web": "npm --prefix app run web"
   }
 }

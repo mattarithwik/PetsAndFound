@@ -169,8 +169,50 @@ function read(ctx: Ctx, resource: string, key: string): unknown {
       const r = ctx.db.shelters.id.find(ctx.db.directoryAliases.id.find(key)?.shelterId ?? key);
       return r ? shelter(r) : null;
     }
+    case "access":
+      return {
+        identity: actor,
+        role: ctx.db.grants.id.find(actor)?.role ?? "",
+        staff: Array.from(ctx.db.staff.userId.filter(actor), (r) => {
+          const s = ctx.db.shelters.id.find(r.shelterId);
+          return {
+            shelterId: r.shelterId,
+            role: r.role,
+            shelter: s ? shelter(s) : null,
+            verification: ctx.db.verifications.id.find(r.shelterId)?.status ?? "unverified",
+          };
+        }),
+        applications: Array.from(ctx.db.verifications.applicantId.filter(actor), (v) => {
+          const s = ctx.db.shelters.id.find(v.id);
+          return { shelterId: v.id, status: v.status, reviewedAt: v.reviewedAt, shelter: s ? shelter(s) : null };
+        }),
+      };
+    case "shelter_staff":
+      if (!ctx.db.staff.id.find(key + ":" + actor)) fail("Shelter staff required");
+      return Array.from(ctx.db.staff.shelterId.filter(key), (r) => ({
+        userId: r.userId,
+        role: r.role,
+        name: ctx.db.users.id.find(r.userId)?.name ?? "",
+      }));
     case "cases":
       return relevantCases(ctx);
+    case "case": {
+      const c = ctx.db.cases.id.find(key);
+      if (!c) return null;
+      const queued =
+        !c.shelterId &&
+        c.status === "open" &&
+        [...ctx.db.staff.userId.filter(actor)].some((r) => isStaff(ctx, r.shelterId));
+      if (!queued && !relevantCases(ctx).some((r) => r.id === c.id)) return null;
+      const r = ctx.db.reports.id.find(c.reportId);
+      const readable = !!r && canReadReport(ctx, r);
+      return {
+        ...c,
+        summary: ctx.db.reportSummaries.id.find(c.reportId) ?? null,
+        report: readable ? r : null,
+        photos: readable ? Array.from(ctx.db.reportPhotos.reportId.filter(c.reportId)) : [],
+      };
+    }
     case "case_queue": {
       if (![...ctx.db.staff.userId.filter(actor)].some((r) => isStaff(ctx, r.shelterId)))
         fail("Verified shelter staff required");

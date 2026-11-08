@@ -36,7 +36,7 @@ The agent will retrieve Max's registered photos, search available data sources, 
 | Animal data       | RescueGroups v5                         | Published shelter organizations and animal photographs   |
 | Local animal data | Dallas Open Data                        | Public intake and field-service records                  |
 | Social discovery  | Bluesky public API                      | Lost/found posts, images and source links                |
-| Shelter discovery | OpenStreetMap Overpass                  | Find nearby shelters                                     |
+| Shelter discovery | OpenStreetMap via Photon                | Find nearby shelters                                     |
 | Weather           | NOAA / NWS                              | Official active disaster alerts                          |
 | Disaster history  | FEMA OpenFEMA                           | Historically grounded scenarios                          |
 | Maps              | react-native-maps                       | Shelter and case visualization                           |
@@ -271,7 +271,7 @@ All external data should be converted to a normalized candidate format before en
 | Bluesky          | Public lost/found posts, image URLs, timestamps, author handles | Public search API; optional Jetstream |
 | RescueGroups     | Organization IDs, animal records, photos, descriptions          | Authorized v5 REST API                |
 | Dallas Open Data | Animal intake and field records                                 | Public Socrata API                    |
-| OpenStreetMap    | Shelter names, addresses, coordinates, contacts                 | Overpass API                          |
+| OpenStreetMap    | Shelter names, addresses, coordinates, contacts                 | Photon geocoder                       |
 | NOAA / NWS       | Official warnings, severity, affected regions                   | Alerts API                            |
 | FEMA             | Disaster declarations and historical context                    | OpenFEMA v2                           |
 | PawSafe          | Original user and shelter reports, images, case statuses        | SpacetimeDB                           |
@@ -922,48 +922,38 @@ Use a monorepo so mobile screens, backend reducers and agent services can share 
 ```
 pawsafe/
 │
-├── apps/
-│   └── mobile/
-│       ├── app/
-│       │   ├── (auth)/
-│       │   │   ├── welcome.tsx
-│       │   │   ├── owner-onboarding.tsx
-│       │   │   └── shelter-onboarding.tsx
-│       │   │
-│       │   ├── (owner)/
-│       │   │   ├── rescue.tsx
-│       │   │   ├── prepare.tsx
-│       │   │   ├── simulation.tsx
-│       │   │   └── profile.tsx
-│       │   │
-│       │   ├── (shelter)/
-│       │   │   ├── dashboard.tsx
-│       │   │   ├── cases.tsx
-│       │   │   └── settings.tsx
-│       │   │
-│       │   ├── report/
-│       │   │   ├── lost.tsx
-│       │   │   └── found.tsx
-│       │   │
-│       │   ├── matches/
-│       │   │   └── [id].tsx
-│       │   │
-│       │   └── _layout.tsx
-│       │
-│       ├── components/
-│       │   ├── AgentChat.tsx
-│       │   ├── PetCard.tsx
-│       │   ├── ShelterCard.tsx
-│       │   ├── MatchCard.tsx
-│       │   └── SimulationScene.tsx
-│       │
-│       ├── services/
-│       │   ├── spacetime.ts
-│       │   ├── agent.ts
-│       │   ├── uploads.ts
-│       │   └── location.ts
-│       │
-│       └── assets/
+├── app/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── (auth)/
+│   │   │   │   ├── welcome.tsx
+│   │   │   │   ├── owner-onboarding.tsx
+│   │   │   │   └── shelter-onboarding.tsx
+│   │   │   │
+│   │   │   ├── (owner)/
+│   │   │   │   ├── rescue.tsx
+│   │   │   │   ├── prepare.tsx
+│   │   │   │   ├── simulation.tsx
+│   │   │   │   └── profile.tsx
+│   │   │   │
+│   │   │   ├── (shelter)/
+│   │   │   │   ├── dashboard.tsx
+│   │   │   │   ├── cases.tsx
+│   │   │   │   └── settings.tsx
+│   │   │   │
+│   │   │   ├── report/
+│   │   │   │   ├── lost.tsx
+│   │   │   │   └── found.tsx
+│   │   │   │
+│   │   │   ├── matches/
+│   │   │   │   └── [id].tsx
+│   │   │   │
+│   │   │   └── _layout.tsx
+│   │   │
+│   │   ├── components/
+│   │   └── lib/
+│   │
+│   └── assets/
 │
 ├── services/
 │   ├── agent/

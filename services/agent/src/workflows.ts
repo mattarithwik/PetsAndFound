@@ -41,20 +41,39 @@ export async function ingestShelters(store: Store, input: z.infer<typeof near>) 
       name: string;
       latitude: number;
       longitude: number;
+      address?: string;
       phone?: string;
       website?: string;
       directorySources?: unknown;
+      directoryConfidence?: string;
+      operatorVerified?: boolean;
+      acceptingAnimals?: boolean;
+      totalCapacity?: number;
+      currentOccupancy?: number;
+      capacityUpdatedAt?: string;
     }[]
   >("shelters");
   const items = rows
     .map((s) => ({
       id: s.id,
       name: s.name,
+      address: s.address,
       latitude: s.latitude,
       longitude: s.longitude,
       phone: s.phone,
       website: s.website,
       directorySources: s.directorySources,
+      directoryConfidence: s.directoryConfidence,
+      operatorVerified: !!s.operatorVerified,
+      // Operational state is only meaningful when reported by verified staff.
+      ...(s.operatorVerified
+        ? {
+            acceptingAnimals: s.acceptingAnimals,
+            totalCapacity: s.totalCapacity,
+            currentOccupancy: s.currentOccupancy,
+            capacityUpdatedAt: s.capacityUpdatedAt,
+          }
+        : {}),
       distanceKm: distance(input, s),
     }))
     .filter((s) => s.distanceKm <= (input.radiusKm ?? 30))

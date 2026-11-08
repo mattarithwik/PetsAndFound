@@ -219,47 +219,37 @@ function directoryRow(
     },
   ];
 }
+const osmTypes: Record<string, string> = { N: "node", W: "way", R: "relation" };
 async function osm(input: Near) {
-  const { latitude, longitude, radiusKm } = bounds(input);
-  const url = new URL(process.env.OVERPASS_URL || "https://overpass-api.de/api/interpreter");
-  const query =
-    '[out:json][timeout:8];nwr["amenity"="animal_shelter"](around:' +
-    Math.round(radiusKm * 1000) +
-    "," +
-    latitude +
-    "," +
-    longitude +
-    ");out center;";
-  const data = object(
-    await request(url, {
-      method: "POST",
-      body: new URLSearchParams({ data: query }),
-    }),
-  );
-  if (data.remark)
-    throw new ProviderError("Overpass returned an incomplete response");
-  return rows(data.elements).flatMap((el) => {
-    if (
-      !["node", "way", "relation"].includes(String(el.type)) ||
-      !/^\d+$/.test(String(el.id))
-    )
-      return [];
-    const tags = object(el.tags),
-      center = object(el.center);
-    const point = asPoint(el.lat ?? center.lat, el.lon ?? center.lon),
-      key = el.type + "/" + el.id;
-    const street = [tags["addr:housenumber"], tags["addr:street"]]
+  const { latitude, longitude } = bounds(input);
+  const url = new URL(process.env.PHOTON_URL || "https://photon.komoot.io/api/");
+  url.search = new URLSearchParams({
+    q: "animal shelter",
+    lat: String(latitude),
+    lon: String(longitude),
+    osm_tag: "amenity:animal_shelter",
+    limit: "50",
+  }).toString();
+  const data = object(await request(url));
+  return rows(data.features).flatMap((feature) => {
+    const p = object(feature.properties),
+      type = osmTypes[String(p.osm_type)];
+    if (!type || !/^\d+$/.test(String(p.osm_id))) return [];
+    const [lon, lat] = Array.isArray(object(feature.geometry).coordinates)
+      ? (object(feature.geometry).coordinates as unknown[])
+      : [];
+    const street = [p.housenumber, p.street]
       .map((x) => asText(x))
       .filter(Boolean)
       .join(" ");
     return directoryRow(
-      "osm-" + el.type + "-" + el.id,
-      "https://www.openstreetmap.org/" + key,
-      tags.name,
-      point,
-      [street, tags["addr:city"], tags["addr:state"], tags["addr:postcode"]],
-      tags.website || tags["contact:website"],
-      tags.phone || tags["contact:phone"],
+      "osm-" + type + "-" + p.osm_id,
+      "https://www.openstreetmap.org/" + type + "/" + p.osm_id,
+      p.name,
+      asPoint(lat, lon),
+      [street, p.city, p.state, p.postcode],
+      undefined,
+      undefined,
     );
   });
 }
